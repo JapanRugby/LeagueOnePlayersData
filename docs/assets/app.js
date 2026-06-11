@@ -450,9 +450,11 @@ function renderSamuraiChart(logs) {
     els.samuraiChart.innerHTML = '<div class="empty-state">グラフ化できる試合ログがありません。</div>';
     return;
   }
-  const width = 760;
-  const height = 260;
-  const margin = { top: 28, right: 28, bottom: 48, left: 58 };
+
+  const pointGap = 64;
+  const width = Math.max(760, 86 + Math.max(ordered.length - 1, 1) * pointGap);
+  const height = 300;
+  const margin = { top: 28, right: 28, bottom: 86, left: 58 };
   const plotW = width - margin.left - margin.right;
   const plotH = height - margin.top - margin.bottom;
   const values = ordered.map((d) => d.samurai);
@@ -471,30 +473,80 @@ function renderSamuraiChart(logs) {
   const zeroY = y(0);
   const yTicks = [yMin, (yMin + yMax) / 2, yMax];
   const xLabels = ordered.map((d, i) => {
-    if (ordered.length > 8 && i !== 0 && i !== ordered.length - 1 && i % Math.ceil(ordered.length / 6) !== 0) return '';
     const label = d.appearance.date.slice(5);
-    return `<text x="${x(i)}" y="${height - 18}" text-anchor="middle" class="chart-label">${escapeHtml(label)}</text>`;
+    return `
+      <text
+        x="${x(i)}"
+        y="${height - 44}"
+        text-anchor="end"
+        class="chart-label chart-date-label"
+        transform="rotate(-45 ${x(i)} ${height - 44})"
+      >${escapeHtml(label)}</text>
+    `;
   }).join('');
-  const circles = ordered.map((d, i) => `
-    <g>
-      <circle cx="${x(i)}" cy="${y(d.samurai)}" r="4" class="chart-point" />
-      <title>${escapeHtml(d.appearance.date)} / ${escapeHtml(d.opponent)} / Samurai ${samuraiFmt.format(d.samurai)}</title>
-    </g>
-  `).join('');
+  const circles = ordered.map((d, i) => {
+    const tooltip = [
+      d.appearance.date,
+      d.opponent,
+      `Samurai Stats ${samuraiFmt.format(d.samurai)}`,
+      `Playing BIP ${numberFmt.format(d.bip)}分`,
+    ].join(' / ');
+    return `
+      <g
+        class="chart-hit"
+        tabindex="0"
+        role="button"
+        aria-label="${escapeHtml(tooltip)}"
+        data-tooltip="${escapeHtml(tooltip)}"
+      >
+        <circle cx="${x(i)}" cy="${y(d.samurai)}" r="4" class="chart-point" />
+        <circle cx="${x(i)}" cy="${y(d.samurai)}" r="14" class="chart-hover-target" />
+      </g>
+    `;
+  }).join('');
+
   els.samuraiChart.innerHTML = `
-    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="試合ごとのSamurai Stats推移">
-      <line x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}" class="chart-axis" />
-      <line x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}" class="chart-axis" />
-      <line x1="${margin.left}" y1="${zeroY}" x2="${width - margin.right}" y2="${zeroY}" class="chart-zero" />
-      ${yTicks.map((tick) => `
-        <line x1="${margin.left}" y1="${y(tick)}" x2="${width - margin.right}" y2="${y(tick)}" class="chart-grid" />
-        <text x="${margin.left - 10}" y="${y(tick) + 4}" text-anchor="end" class="chart-label">${samuraiFmt.format(tick)}</text>
-      `).join('')}
-      <polyline points="${points}" class="chart-line" />
-      ${circles}
-      ${xLabels}
-    </svg>
+    <div class="chart-scroll">
+      <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="試合ごとのSamurai Stats推移">
+        <line x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}" class="chart-axis" />
+        <line x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}" class="chart-axis" />
+        <line x1="${margin.left}" y1="${zeroY}" x2="${width - margin.right}" y2="${zeroY}" class="chart-zero" />
+        ${yTicks.map((tick) => `
+          <line x1="${margin.left}" y1="${y(tick)}" x2="${width - margin.right}" y2="${y(tick)}" class="chart-grid" />
+          <text x="${margin.left - 10}" y="${y(tick) + 4}" text-anchor="end" class="chart-label">${samuraiFmt.format(tick)}</text>
+        `).join('')}
+        <polyline points="${points}" class="chart-line" />
+        ${circles}
+        ${xLabels}
+      </svg>
+    </div>
+    <div class="chart-tooltip" role="status" aria-live="polite" hidden></div>
   `;
+
+  const tooltip = els.samuraiChart.querySelector('.chart-tooltip');
+  const hideTooltip = () => {
+    tooltip.hidden = true;
+  };
+  const showTooltip = (event, target) => {
+    tooltip.textContent = target.dataset.tooltip || '';
+    tooltip.hidden = false;
+    const chartRect = els.samuraiChart.getBoundingClientRect();
+    const xPos = event.clientX - chartRect.left + 12;
+    const yPos = event.clientY - chartRect.top - 12;
+    tooltip.style.left = `${Math.min(Math.max(8, xPos), Math.max(8, chartRect.width - 220))}px`;
+    tooltip.style.top = `${Math.max(8, yPos)}px`;
+  };
+
+  els.samuraiChart.querySelectorAll('.chart-hit').forEach((target) => {
+    target.addEventListener('mousemove', (event) => showTooltip(event, target));
+    target.addEventListener('mouseenter', (event) => showTooltip(event, target));
+    target.addEventListener('mouseleave', hideTooltip);
+    target.addEventListener('focus', (event) => {
+      const rect = target.getBoundingClientRect();
+      showTooltip({ clientX: rect.left + rect.width / 2, clientY: rect.top }, target);
+    });
+    target.addEventListener('blur', hideTooltip);
+  });
 }
 
 function renderPlayerPanel(playerKey) {

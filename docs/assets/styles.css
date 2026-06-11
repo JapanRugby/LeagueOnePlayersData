@@ -201,8 +201,30 @@ body:has(.modal-overlay:not([hidden])) { overflow: hidden; }
 }
 .chart-header h3 { margin: 0; font-size: 1rem; }
 .chart-header p { margin: 0; color: var(--muted); font-size: 0.86rem; }
-.samurai-chart { width: 100%; overflow-x: auto; }
-.samurai-chart svg { width: 100%; min-width: 620px; display: block; }
+.samurai-chart { position: relative; width: 100%; overflow: visible; }
+.chart-scroll { width: 100%; overflow-x: auto; padding-bottom: 4px; }
+.samurai-chart svg { width: auto; min-width: 760px; max-width: none; display: block; }
+.chart-hover-target { fill: transparent; stroke: transparent; pointer-events: all; cursor: help; }
+.chart-hit:focus { outline: none; }
+.chart-hit:focus .chart-point,
+.chart-hit:hover .chart-point { r: 5.5px; stroke-width: 3; }
+.chart-date-label { font-size: 11px; }
+.chart-tooltip {
+  position: absolute;
+  z-index: 3;
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #102a43;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.35;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+  white-space: normal;
+}
+.chart-tooltip[hidden] { display: none; }
 .chart-axis { stroke: #94a3b8; stroke-width: 1.2; }
 .chart-grid { stroke: #e2e8f0; stroke-width: 1; }
 .chart-zero { stroke: #b45309; stroke-width: 1.4; stroke-dasharray: 5 5; }

@@ -1,3 +1,5 @@
+const ALL_COMPETITIONS_VALUE = 'all';
+
 const state = {
   manifest: null,
   loadedKey: null,
@@ -15,6 +17,7 @@ const state = {
   sort: { key: 'samurai_stats', dir: 'desc' },
   rows: [],
   selectedPlayerKey: null,
+  playerListFilter: { active: false, filename: '', ids: new Set(), names: new Set() },
 };
 
 const els = {
@@ -27,6 +30,10 @@ const els = {
   searchInput: document.querySelector('#searchInput'),
   minMinutesSlider: document.querySelector('#minMinutesSlider'),
   minMinutesValue: document.querySelector('#minMinutesValue'),
+  playerListCsvInput: document.querySelector('#playerListCsvInput'),
+  playerListStatus: document.querySelector('#playerListStatus'),
+  downloadPlayerListTemplateButton: document.querySelector('#downloadPlayerListTemplateButton'),
+  clearPlayerListButton: document.querySelector('#clearPlayerListButton'),
   resetButton: document.querySelector('#resetButton'),
   statsBody: document.querySelector('#statsBody'),
   statusText: document.querySelector('#statusText'),
@@ -50,7 +57,7 @@ const els = {
 
 const numberFmt = new Intl.NumberFormat('ja-JP');
 const decimalFmt = new Intl.NumberFormat('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const samuraiFmt = new Intl.NumberFormat('ja-JP', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+const samuraiFmt = new Intl.NumberFormat('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const positionNames = new Map();
 const playerById = new Map();
 const teamById = new Map();
@@ -119,17 +126,45 @@ function setSelectOptions(select, options, value) {
 }
 
 function selectedCompetition() {
+  if (state.filters.competition === ALL_COMPETITIONS_VALUE) return null;
   const found = state.manifest.competitions.find((c) => c.competition_id === state.filters.competition);
   if (found) return found;
-  const fallback = state.manifest.competitions[0];
-  if (fallback) state.filters.competition = fallback.competition_id;
-  return fallback;
+  state.filters.competition = ALL_COMPETITIONS_VALUE;
+  return null;
+}
+
+function allSeasonOptions() {
+  const byId = new Map();
+  (state.manifest?.competitions || []).forEach((competition) => {
+    (competition.seasons || []).forEach((season) => {
+      const existing = byId.get(season.season_id);
+      if (!existing) {
+        byId.set(season.season_id, { ...season });
+      } else {
+        existing.date_min = [existing.date_min, season.date_min].filter(Boolean).sort()[0] || existing.date_min;
+        existing.date_max = [existing.date_max, season.date_max].filter(Boolean).sort().at(-1) || existing.date_max;
+      }
+    });
+  });
+  return [...byId.values()].sort((a, b) => a.season_id.localeCompare(b.season_id));
 }
 
 function selectedSeasonMeta() {
   const comp = selectedCompetition();
-  if (state.filters.season === 'all') return null;
+  if (!comp || state.filters.season === 'all') return null;
   return comp.seasons.find((s) => s.season_id === state.filters.season) || comp.seasons.at(-1);
+}
+
+function selectedDataTargets() {
+  const competitions = state.filters.competition === ALL_COMPETITIONS_VALUE
+    ? (state.manifest?.competitions || [])
+    : [selectedCompetition()].filter(Boolean);
+  return competitions.flatMap((competition) => {
+    const seasons = state.filters.season === 'all'
+      ? (competition.seasons || [])
+      : (competition.seasons || []).filter((season) => season.season_id === state.filters.season);
+    return seasons.map((season) => ({ competition, season }));
+  });
 }
 
 function populateInitialControls() {
@@ -138,10 +173,12 @@ function populateInitialControls() {
     els.statusText.textContent = 'コンペティションが見つかりません。rawデータを追加して再ビルドしてください。';
     return;
   }
-  if (!state.filters.competition || !competitions.some((c) => c.competition_id === state.filters.competition)) {
-    state.filters.competition = competitions[0].competition_id;
+  if (!state.filters.competition || (state.filters.competition !== ALL_COMPETITIONS_VALUE && !competitions.some((c) => c.competition_id === state.filters.competition))) {
+    state.filters.competition = ALL_COMPETITIONS_VALUE;
   }
-  setSelectOptions(els.competitionSelect, competitions.map((c) => ({ value: c.competition_id, label: c.name })), state.filters.competition);
+  const competitionOptions = [{ value: ALL_COMPETITIONS_VALUE, label: '全コンペティション' }]
+    .concat(competitions.map((c) => ({ value: c.competition_id, label: c.name })));
+  setSelectOptions(els.competitionSelect, competitionOptions, state.filters.competition);
   populateSeasonSelect();
   state.manifest.positions.forEach((p) => positionNames.set(String(p.position_id), p.ja || p.en));
   const posOptions = [{ value: 'all', label: 'All Positions' }].concat(
@@ -151,8 +188,9 @@ function populateInitialControls() {
 }
 
 function populateSeasonSelect() {
-  const comp = selectedCompetition();
-  const seasons = [...(comp?.seasons || [])].sort((a, b) => a.season_id.localeCompare(b.season_id));
+  const seasons = state.filters.competition === ALL_COMPETITIONS_VALUE
+    ? allSeasonOptions()
+    : [...(selectedCompetition()?.seasons || [])].sort((a, b) => a.season_id.localeCompare(b.season_id));
   if (!seasons.length) {
     setSelectOptions(els.seasonSelect, [], '');
     state.filters.season = '';
@@ -162,14 +200,14 @@ function populateSeasonSelect() {
   if (!state.filters.season || !validSeason) state.filters.season = seasons.at(-1).season_id;
   const opts = [{ value: 'all', label: '全シーズン' }].concat(seasons.map((s) => ({
     value: s.season_id,
-    label: `${s.label} (${s.date_min}〜${s.date_max})`,
+    label: `${s.label || s.season_id} (${s.date_min || '-'}〜${s.date_max || '-'})`,
   })));
   setSelectOptions(els.seasonSelect, opts, state.filters.season);
 }
 
 async function loadSelectedData() {
-  const comp = selectedCompetition();
-  if (!comp || !comp.seasons?.length) {
+  const targets = selectedDataTargets();
+  if (!targets.length) {
     state.data.matches = [];
     state.data.appearances = [];
     state.data.samurai = [];
@@ -178,14 +216,11 @@ async function loadSelectedData() {
     els.statusText.textContent = '読み込めるコンペティションデータがありません。';
     return;
   }
-  const key = `${comp.competition_id}:${state.filters.season}`;
+  const key = `${state.filters.competition}:${state.filters.season}`;
   if (state.loadedKey === key) return;
   els.statusText.textContent = 'データを読み込んでいます。';
-  const seasons = state.filters.season === 'all'
-    ? comp.seasons
-    : [selectedSeasonMeta()];
-  const chunks = await Promise.all(seasons.map(async (s) => {
-    const base = `./data/${comp.competition_id}/${s.season_id}`;
+  const chunks = await Promise.all(targets.map(async ({ competition, season }) => {
+    const base = `./data/${competition.competition_id}/${season.season_id}`;
     const [matches, appearances, samurai, teams, players] = await Promise.all([
       fetchJson(`${base}/matches.json`),
       fetchJson(`${base}/appearances.json`),
@@ -198,8 +233,10 @@ async function loadSelectedData() {
   state.data.matches = chunks.flatMap((c) => c.matches);
   state.data.appearances = chunks.flatMap((c) => c.appearances);
   state.data.samurai = chunks.flatMap((c) => c.samurai);
-  state.data.teams = uniqueBy(chunks.flatMap((c) => c.teams), 'team_id').sort((a, b) => a.name.localeCompare(b.name));
-  state.data.players = uniqueBy(chunks.flatMap((c) => c.players), 'player_id').sort((a, b) => a.display_name.localeCompare(b.display_name));
+  state.data.teams = uniqueBy(chunks.flatMap((c) => c.teams), (item) => `${item.competition_id || ''}|${item.team_id}`)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  state.data.players = uniqueBy(chunks.flatMap((c) => c.players), (item) => item.player_id)
+    .sort((a, b) => a.display_name.localeCompare(b.display_name));
   rebuildIndexes();
   populateTeamSelect();
   applyDefaultDatesIfNeeded();
@@ -208,12 +245,17 @@ async function loadSelectedData() {
 
 function uniqueBy(items, key) {
   const map = new Map();
-  items.forEach((item) => map.set(item[key], item));
+  const getKey = typeof key === 'function' ? key : (item) => item[key];
+  items.forEach((item) => map.set(getKey(item), item));
   return [...map.values()];
 }
 
-function samuraiKey(matchId, teamId, playerId) {
-  return `${matchId}|${teamId}|${playerId}`;
+function samuraiKey(matchId, teamId, playerId, competitionId = '') {
+  return `${competitionId}|${matchId}|${teamId}|${playerId}`;
+}
+
+function matchKey(matchId, competitionId = '') {
+  return `${competitionId}|${matchId}`;
 }
 
 function rebuildIndexes() {
@@ -223,8 +265,11 @@ function rebuildIndexes() {
   samuraiByAppearanceKey.clear();
   state.data.players.forEach((p) => playerById.set(p.player_id, p));
   state.data.teams.forEach((t) => teamById.set(t.team_id, t));
-  state.data.matches.forEach((m) => matchById.set(m.match_id, m));
-  state.data.samurai.forEach((s) => samuraiByAppearanceKey.set(samuraiKey(s.match_id, s.team_id, s.player_id), s));
+  state.data.matches.forEach((m) => {
+    matchById.set(matchKey(m.match_id, m.competition_id), m);
+    if (!matchById.has(m.match_id)) matchById.set(m.match_id, m);
+  });
+  state.data.samurai.forEach((s) => samuraiByAppearanceKey.set(samuraiKey(s.match_id, s.team_id, s.player_id, s.competition_id), s));
 }
 
 function populateTeamSelect() {
@@ -292,15 +337,106 @@ function appearancesForDateAndTeam() {
   });
 }
 
+
+function parseCsvLine(line) {
+  const cells = [];
+  let current = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    const next = line[i + 1];
+    if (char === '"' && quoted && next === '"') {
+      current += '"';
+      i += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === ',' && !quoted) {
+      cells.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  cells.push(current.trim());
+  return cells.map((cell) => cell.replace(/^"|"$/g, '').trim());
+}
+
+function getHeaderIndex(headers, names) {
+  const normalized = headers.map((header) => normalize(header).replace(/[ _-]/g, ''));
+  const candidates = names.map((name) => normalize(name).replace(/[ _-]/g, ''));
+  return normalized.findIndex((header) => candidates.includes(header));
+}
+
+function parsePlayerListCsv(text) {
+  const lines = text.replace(/^\ufeff/, '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const ids = new Set();
+  const names = new Set();
+  if (!lines.length) return { ids, names };
+  const first = parseCsvLine(lines[0]);
+  const idIndex = getHeaderIndex(first, ['player_id', 'PLID', 'PlayerID', 'player id']);
+  const nameIndex = getHeaderIndex(first, ['player_name', 'display_name', 'PlayerName', 'name', 'player']);
+  const hasHeader = idIndex >= 0 || nameIndex >= 0;
+  const rows = hasHeader ? lines.slice(1) : lines;
+  rows.forEach((line) => {
+    const cells = parseCsvLine(line);
+    const idValue = hasHeader && idIndex >= 0 ? cells[idIndex] : cells[0];
+    const nameValue = hasHeader && nameIndex >= 0 ? cells[nameIndex] : (cells.length > 1 ? cells[1] : cells[0]);
+    if (idValue && /^\d+$/.test(String(idValue).trim())) ids.add(String(idValue).trim());
+    if (nameValue) names.add(normalize(nameValue));
+  });
+  return { ids, names };
+}
+
+function playerMatchesListFilter(playerId, playerName) {
+  const filter = state.playerListFilter;
+  if (!filter.active) return true;
+  if (filter.ids.has(String(playerId))) return true;
+  const normalizedName = normalize(playerName);
+  if (filter.names.has(normalizedName)) return true;
+  for (const listedName of filter.names) {
+    if (listedName && (normalizedName.includes(listedName) || listedName.includes(normalizedName))) return true;
+  }
+  return false;
+}
+
+function updatePlayerListStatus() {
+  if (!els.playerListStatus) return;
+  const filter = state.playerListFilter;
+  if (!filter.active) {
+    els.playerListStatus.textContent = 'CSV未適用';
+    return;
+  }
+  const count = filter.ids.size + filter.names.size;
+  els.playerListStatus.textContent = `${filter.filename || 'CSV'}: ${numberFmt.format(count)}件`;
+}
+
+function clearPlayerListFilter() {
+  state.playerListFilter = { active: false, filename: '', ids: new Set(), names: new Set() };
+  if (els.playerListCsvInput) els.playerListCsvInput.value = '';
+  updatePlayerListStatus();
+  render();
+}
+
+function downloadPlayerListTemplate() {
+  const csv = 'player_id,player_name\n12345,Sample Player\n';
+  const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'player-list-template.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 function currentFilteredAppearances() {
   const q = normalize(state.filters.q);
   return appearancesForDateAndTeam().filter((a) => {
     if (state.filters.position !== 'all' && String(a.position_id) !== state.filters.position) return false;
+    const player = playerById.get(a.player_id);
+    const displayName = player?.display_name || a.player_name;
     if (q) {
-      const player = playerById.get(a.player_id);
-      const haystack = normalize(`${player?.display_name || a.player_name} ${a.player_name}`);
+      const haystack = normalize(`${displayName} ${a.player_name}`);
       if (!haystack.includes(q)) return false;
     }
+    if (!playerMatchesListFilter(a.player_id, displayName || a.player_name)) return false;
     return true;
   });
 }
@@ -447,9 +583,10 @@ function renderSummary() {
   els.playerSummary.textContent = `${numberFmt.format(state.rows.length)} 選手`;
   els.bipSummary.textContent = `${numberFmt.format(totalBip)} 分`;
   const threshold = Math.max(0, Number(state.filters.minMinutes) || 0);
+  const playerListText = state.playerListFilter.active ? ' / 対象選手CSV適用中' : '';
   els.statusText.textContent = threshold > 0
-    ? `${numberFmt.format(state.rows.length)}件を表示中（出場時間 ${numberFmt.format(threshold)}分以下を除外）`
-    : `${numberFmt.format(state.rows.length)}件を表示中`;
+    ? `${numberFmt.format(state.rows.length)}件を表示中（出場時間 ${numberFmt.format(threshold)}分以下を除外${playerListText}）`
+    : `${numberFmt.format(state.rows.length)}件を表示中${playerListText}`;
 }
 
 function formatActionDisplay(value) {
@@ -486,9 +623,9 @@ function playerMatchLogRecords(playerKey) {
   return appearancesForDateAndTeam()
     .filter((a) => `${a.player_id}|${a.team_id}` === playerKey)
     .map((a) => {
-      const match = matchById.get(a.match_id);
+      const match = matchById.get(matchKey(a.match_id, a.competition_id)) || matchById.get(a.match_id);
       const team = teamById.get(a.team_id) || { name: a.team_name };
-      const stat = samuraiByAppearanceKey.get(samuraiKey(a.match_id, a.team_id, a.player_id)) || { positive_actions: 0, negative_actions: 0, net_actions: 0 };
+      const stat = samuraiByAppearanceKey.get(samuraiKey(a.match_id, a.team_id, a.player_id, a.competition_id)) || { positive_actions: 0, negative_actions: 0, net_actions: 0 };
       const bip = playingBipMinutes(a) || playingBipMinutes(stat);
       const samurai = bip > 0 ? (stat.net_actions || 0) / bip : 0;
       let opponent = '-';
@@ -728,12 +865,12 @@ function exportCsv() {
   }
   const header = [
     'competition_id','season_filter','player_id','player_name','team_id','team_name','position',
-    'minutes','appearances','starts','reserve_selections','samurai_stats','playing_ball_in_play_minutes','start_date','end_date','min_minutes_filter'
+    'minutes','appearances','starts','reserve_selections','samurai_stats','playing_ball_in_play_minutes','start_date','end_date','min_minutes_filter','player_list_filter'
   ];
   const rows = state.rows.map((r) => [
     state.filters.competition, state.filters.season, r.player_id, r.player_name, r.team_id, r.team_name, r.position_label,
     r.minutes, r.appearances, r.starts, r.reserve_selections, r.samurai_stats, r.playing_ball_in_play_minutes,
-    state.filters.start, state.filters.end, state.filters.minMinutes || 0,
+    state.filters.start, state.filters.end, state.filters.minMinutes || 0, state.playerListFilter.active ? state.playerListFilter.filename : '',
   ]);
   const csv = [header, ...rows].map((row) => row.map((v) => `"${String(v ?? '').replaceAll('"', '""')}"`).join(',')).join('\n');
   const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
@@ -786,6 +923,9 @@ function bindEvents() {
     state.filters.position = 'all';
     state.filters.q = '';
     state.filters.minMinutes = 0;
+    state.playerListFilter = { active: false, filename: '', ids: new Set(), names: new Set() };
+    if (els.playerListCsvInput) els.playerListCsvInput.value = '';
+    updatePlayerListStatus();
     applyPreset('all');
   });
   document.querySelectorAll('th[data-sort]').forEach((th) => {
@@ -813,6 +953,19 @@ function bindEvents() {
       state.selectedPlayerKey = null;
     }
   });
+  if (els.playerListCsvInput) {
+    els.playerListCsvInput.addEventListener('change', async () => {
+      const file = els.playerListCsvInput.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      const parsed = parsePlayerListCsv(text);
+      state.playerListFilter = { active: true, filename: file.name, ids: parsed.ids, names: parsed.names };
+      updatePlayerListStatus();
+      render();
+    });
+  }
+  if (els.clearPlayerListButton) els.clearPlayerListButton.addEventListener('click', clearPlayerListFilter);
+  if (els.downloadPlayerListTemplateButton) els.downloadPlayerListTemplateButton.addEventListener('click', downloadPlayerListTemplate);
   els.exportCsvButton.addEventListener('click', exportCsv);
   els.copyLinkButton.addEventListener('click', async () => {
     syncUrl();
@@ -833,6 +986,7 @@ async function init() {
     populateInitialControls();
     await loadSelectedData();
     syncControlsFromState();
+    updatePlayerListStatus();
     bindEvents();
     render();
   } catch (error) {

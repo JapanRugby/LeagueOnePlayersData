@@ -57,6 +57,17 @@
           <span>出場時間フィルター <strong id="minMinutesValue">0分超</strong></span>
           <input id="minMinutesSlider" type="range" min="0" max="0" step="1" value="0" />
         </label>
+        <label class="player-list-field">
+          <span>対象選手CSV</span>
+          <input id="playerListCsvInput" type="file" accept=".csv,text/csv" />
+        </label>
+        <div class="player-list-actions">
+          <span id="playerListStatus">CSV未適用</span>
+          <div>
+            <button id="downloadPlayerListTemplateButton" class="ghost-button compact-button" type="button">テンプレート</button>
+            <button id="clearPlayerListButton" class="ghost-button compact-button" type="button">解除</button>
+          </div>
+        </div>
       </div>
       <div class="preset-row" aria-label="期間プリセット">
         <button type="button" data-preset="all">全期間</button>
@@ -66,7 +77,7 @@
         <button type="button" data-preset="latest-10-matchdays">最新10開催日</button>
         <button type="button" id="resetButton">条件をリセット</button>
       </div>
-      <p class="rule-note">Positive / Negativeは1イベント行が複数条件に該当した場合に複数カウントします。Samurai Statsは常に選手ごとのPlaying BIP分あたりのrateとして扱います。</p>
+      <p class="rule-note">Positive / Negativeは1イベント行が複数条件に該当した場合に複数カウントします。Samurai Statsは常に選手ごとのPlaying BIP分あたりのrateとして扱います。対象選手CSVは <code>player_id</code> または <code>player_name</code> 列で絞り込みできます。</p>
     </section>
 
     <section class="summary-grid" aria-label="集計概要">

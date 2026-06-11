@@ -428,3 +428,25 @@ a.ghost-button, a.primary-button {
   .compare-filter-grid { grid-template-columns: 1fr; }
   .player-select-field, .compare-add-field { grid-column: span 1; }
 }
+
+.player-list-field { grid-column: span 2; }
+.player-list-actions {
+  display: grid;
+  gap: 6px;
+  align-content: end;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+.player-list-actions > div { display: flex; gap: 8px; flex-wrap: wrap; }
+.compact-button { padding: 8px 10px; min-height: 38px; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.86em; }
+@media (max-width: 860px) {
+  .player-list-field, .player-list-actions { grid-column: span 3; }
+}
+@media (max-width: 640px) {
+  .player-list-field, .player-list-actions { grid-column: span 2; }
+}
+@media (max-width: 520px) {
+  .player-list-field, .player-list-actions { grid-column: span 1; }
+}

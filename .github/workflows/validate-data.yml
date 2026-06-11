@@ -21,8 +21,12 @@ jobs:
           import json
           from pathlib import Path
           manifest = json.loads(Path('docs/data/manifest.json').read_text(encoding='utf-8'))
-          assert manifest['competitions'], 'No competitions in manifest'
-          assert manifest['metric_definitions']['samurai_stats'], 'Missing Samurai Stats definition'
+          assert manifest.get('competitions'), 'No competitions in manifest'
+          metric_definitions = manifest.get('metric_definitions', {})
+          assert metric_definitions.get('samurai_stats'), (
+              'Missing metric_definitions.samurai_stats in docs/data/manifest.json. '
+              'Regenerate data with: python3 tools/build_data.py --raw-dir data/raw --out-dir docs/data'
+          )
           for competition in manifest['competitions']:
               for season in competition['seasons']:
                   base = Path('docs/data') / competition['competition_id'] / season['season_id']

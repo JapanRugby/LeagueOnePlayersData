@@ -9,6 +9,7 @@
   --accent: #164ea6;
   --accent-dark: #0f3673;
   --ok: #13795b;
+  --gold: #b45309;
   --shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
 }
 
@@ -45,7 +46,19 @@ button { cursor: pointer; }
 h1, h2 { margin: 0; }
 h1 { font-size: clamp(2rem, 4vw, 4rem); letter-spacing: -0.05em; }
 h2 { font-size: 1.25rem; }
-.lead { max-width: 720px; color: var(--muted); font-size: 1.05rem; line-height: 1.7; margin: 12px 0 0; }
+.lead { max-width: 760px; color: var(--muted); font-size: 1.05rem; line-height: 1.7; margin: 12px 0 0; }
+.formula {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 16px 0 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(180, 83, 9, 0.25);
+  border-radius: 999px;
+  background: rgba(255, 251, 235, 0.85);
+  color: #7c2d12;
+  font-weight: 800;
+}
 .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .primary-button, .ghost-button, .preset-row button {
   border: 1px solid var(--border);
@@ -83,9 +96,15 @@ h2 { font-size: 1.25rem; }
 }
 .search-field { grid-column: span 2; }
 .preset-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.rule-note {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 14px;
 }
 .summary-grid article {
@@ -108,7 +127,7 @@ h2 { font-size: 1.25rem; }
 .table-toolbar p { margin: 6px 0 0; color: var(--muted); }
 .small-note { color: var(--muted); font-size: 0.86rem; }
 .table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; min-width: 920px; }
+table { width: 100%; border-collapse: collapse; min-width: 1180px; }
 th, td { padding: 13px 14px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
 th { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; background: #f8fafc; user-select: none; }
 th[data-sort] { cursor: pointer; }
@@ -119,6 +138,7 @@ tbody tr { transition: background 0.15s ease; }
 tbody tr:hover { background: #f1f6ff; }
 tbody tr.clickable { cursor: pointer; }
 .numeric { text-align: right; font-variant-numeric: tabular-nums; }
+.primary-metric { color: var(--accent-dark); font-weight: 900; }
 .player-name { font-weight: 800; }
 .team-chip {
   display: inline-flex;
@@ -147,7 +167,7 @@ tbody tr.clickable { cursor: pointer; }
 #panelSubtitle { color: var(--muted); margin: 6px 0 0; }
 .mini-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 .mini-stats span { padding: 8px 10px; border-radius: 12px; background: var(--surface-soft); color: var(--accent-dark); font-weight: 800; }
-.compact table { min-width: 760px; }
+.compact table { min-width: 1120px; }
 .site-footer { color: var(--muted); font-size: 0.84rem; padding: 24px 0 40px; }
 .empty-state { color: var(--muted); text-align: center; padding: 28px; }
 .toast {

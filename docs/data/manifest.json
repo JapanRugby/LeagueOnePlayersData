@@ -1,8 +1,15 @@
 {
-  "generated_at": "2026-06-11T15:37:12.889300+00:00",
-  "schema_version": "1.3.0",
+  "generated_at": "2026-06-11T10:10:49.688818+00:00",
+  "schema_version": "1.4.0",
   "metric_definitions": {
     "samurai_stats": "(positive_actions - negative_actions) / playing_ball_in_play_minutes",
+    "important_notes": [
+      "Positive and Negative action rules mirror the supplied PowerBI/DAX measures: Actions Positive JRFU and Actions Negative JRFU.",
+      "One event row may count more than once if it satisfies multiple Positive/Negative rules.",
+      "Samurai Stats is already a Ball-in-Play Minutes rate, so Total / Per Game / Per80 display modes must not change the Samurai Stats value.",
+      "The denominator is the player-specific Playing Ball-in-Play minutes from TeamData/Player@BallInPlayMins, not match-level or team-level BIP.",
+      "ball_in_play_minutes is a backward-compatible alias for playing_ball_in_play_minutes."
+    ],
     "rule_version": "jrfu-powerbi-dax-2026-06-11",
     "positive_action_rules": [
       "PassPositive",
@@ -45,131 +52,30 @@
       "ErrorOnAttack",
       "GoalKickMissed"
     ],
-    "important_notes": [
-      "Positive and Negative action rules mirror the supplied PowerBI/DAX measures: Actions Positive JRFU and Actions Negative JRFU.",
-      "Competitions are generated automatically from raw CSV/XML metadata. CSV competitionID/competitionName is preferred; XML FixData/Data FxTID is used as fallback.",
-      "One event row may count more than once if it satisfies multiple Positive/Negative rules.",
-      "The denominator is the player's own Playing Ball-in-Play minutes from TeamData/Player BallInPlayMins.",
-      "Samurai Stats is already a Playing Ball-in-Play Minutes rate, so Total / Per Game / Per80 display modes must not change the Samurai Stats value."
-    ]
+    "comparison_metrics": {
+      "playing_minutes": "sum(minutes)",
+      "samurai_stats": "sum(net_actions) / sum(playing_ball_in_play_minutes)",
+      "ball_carry_attempt_per80": "sum(ball_carry_attempts) / sum(minutes) * 80",
+      "ball_carry_dominance_pct": "sum(dominant_carries) / sum(ball_carry_attempts) * 100",
+      "ball_carry_metres_per80": "sum(carry_metres) / sum(minutes) * 80",
+      "post_contact_metres_per80": "sum(post_contact_metres) / sum(minutes) * 80",
+      "tackle_attempt_per80": "sum(tackle_attempts) / sum(minutes) * 80",
+      "tackle_made_per80": "sum(tackles_made) / sum(minutes) * 80",
+      "tackle_dominance_pct": "sum(dominant_tackles) / sum(tackle_attempts) * 100",
+      "ruck_ooa_attack_attempt_per80": "sum(ruck_ooa_attack_attempts) / sum(minutes) * 80",
+      "ruck_ooa_attack_effectiveness_pct": "sum(ruck_ooa_attack_effective) / sum(ruck_ooa_attack_attempts) * 100"
+    }
   },
   "competitions": [
     {
-      "competition_id": "super-rugby-pacific",
-      "source_competition_id": "205",
-      "name": "Super Rugby Pacific",
-      "country": null,
-      "sport": "rugby_union",
-      "seasons": [
-        {
-          "season_id": "2024-25",
-          "competition_id": "super-rugby-pacific",
-          "label": "2024-25",
-          "start_year": 2024,
-          "end_year": 2025,
-          "date_min": "2025-02-14",
-          "date_max": "2025-06-21",
-          "match_count": 83,
-          "appearance_count": 3818,
-          "samurai_match_stat_count": 3787,
-          "team_count": 11,
-          "player_count": 425,
-          "paths": {
-            "metadata": "data/super-rugby-pacific/2024-25/metadata.json",
-            "matches": "data/super-rugby-pacific/2024-25/matches.json",
-            "appearances": "data/super-rugby-pacific/2024-25/appearances.json",
-            "samurai_match_stats": "data/super-rugby-pacific/2024-25/samurai_match_stats.json",
-            "teams": "data/super-rugby-pacific/2024-25/teams.json",
-            "players": "data/super-rugby-pacific/2024-25/players.json"
-          }
-        },
-        {
-          "season_id": "2025-26",
-          "competition_id": "super-rugby-pacific",
-          "label": "2025-26",
-          "start_year": 2025,
-          "end_year": 2026,
-          "date_min": "2026-02-13",
-          "date_max": "2026-06-06",
-          "match_count": 80,
-          "appearance_count": 3680,
-          "samurai_match_stat_count": 3659,
-          "team_count": 11,
-          "player_count": 429,
-          "paths": {
-            "metadata": "data/super-rugby-pacific/2025-26/metadata.json",
-            "matches": "data/super-rugby-pacific/2025-26/matches.json",
-            "appearances": "data/super-rugby-pacific/2025-26/appearances.json",
-            "samurai_match_stats": "data/super-rugby-pacific/2025-26/samurai_match_stats.json",
-            "teams": "data/super-rugby-pacific/2025-26/teams.json",
-            "players": "data/super-rugby-pacific/2025-26/players.json"
-          }
-        }
-      ]
-    },
-    {
-      "competition_id": "top-14",
-      "source_competition_id": "203",
-      "name": "TOP 14",
-      "country": null,
-      "sport": "rugby_union",
-      "seasons": [
-        {
-          "season_id": "2024-25",
-          "competition_id": "top-14",
-          "label": "2024-25",
-          "start_year": 2024,
-          "end_year": 2025,
-          "date_min": "2024-09-07",
-          "date_max": "2025-06-28",
-          "match_count": 187,
-          "appearance_count": 8602,
-          "samurai_match_stat_count": 8515,
-          "team_count": 14,
-          "player_count": 652,
-          "paths": {
-            "metadata": "data/top-14/2024-25/metadata.json",
-            "matches": "data/top-14/2024-25/matches.json",
-            "appearances": "data/top-14/2024-25/appearances.json",
-            "samurai_match_stats": "data/top-14/2024-25/samurai_match_stats.json",
-            "teams": "data/top-14/2024-25/teams.json",
-            "players": "data/top-14/2024-25/players.json"
-          }
-        },
-        {
-          "season_id": "2025-26",
-          "competition_id": "top-14",
-          "label": "2025-26",
-          "start_year": 2025,
-          "end_year": 2026,
-          "date_min": "2026-04-18",
-          "date_max": "2026-06-06",
-          "match_count": 40,
-          "appearance_count": 1840,
-          "samurai_match_stat_count": 8298,
-          "team_count": 14,
-          "player_count": 529,
-          "paths": {
-            "metadata": "data/top-14/2025-26/metadata.json",
-            "matches": "data/top-14/2025-26/matches.json",
-            "appearances": "data/top-14/2025-26/appearances.json",
-            "samurai_match_stats": "data/top-14/2025-26/samurai_match_stats.json",
-            "teams": "data/top-14/2025-26/teams.json",
-            "players": "data/top-14/2025-26/players.json"
-          }
-        }
-      ]
-    },
-    {
-      "competition_id": "japan-rugby-league-one-d1",
-      "source_competition_id": "421",
+      "competition_id": "japan-league-one-d1",
       "name": "Japan Rugby League One D1",
       "country": "Japan",
       "sport": "rugby_union",
       "seasons": [
         {
           "season_id": "2024-25",
-          "competition_id": "japan-rugby-league-one-d1",
+          "competition_id": "japan-league-one-d1",
           "label": "2024-25",
           "start_year": 2024,
           "end_year": 2025,
@@ -181,17 +87,19 @@
           "team_count": 12,
           "player_count": 519,
           "paths": {
-            "metadata": "data/japan-rugby-league-one-d1/2024-25/metadata.json",
-            "matches": "data/japan-rugby-league-one-d1/2024-25/matches.json",
-            "appearances": "data/japan-rugby-league-one-d1/2024-25/appearances.json",
-            "samurai_match_stats": "data/japan-rugby-league-one-d1/2024-25/samurai_match_stats.json",
-            "teams": "data/japan-rugby-league-one-d1/2024-25/teams.json",
-            "players": "data/japan-rugby-league-one-d1/2024-25/players.json"
-          }
+            "metadata": "data/japan-league-one-d1/2024-25/metadata.json",
+            "matches": "data/japan-league-one-d1/2024-25/matches.json",
+            "appearances": "data/japan-league-one-d1/2024-25/appearances.json",
+            "samurai_match_stats": "data/japan-league-one-d1/2024-25/samurai_match_stats.json",
+            "teams": "data/japan-league-one-d1/2024-25/teams.json",
+            "players": "data/japan-league-one-d1/2024-25/players.json",
+            "player_action_stats": "data/japan-league-one-d1/2024-25/player_action_stats.json"
+          },
+          "player_action_stat_count": 5175
         },
         {
           "season_id": "2025-26",
-          "competition_id": "japan-rugby-league-one-d1",
+          "competition_id": "japan-league-one-d1",
           "label": "2025-26",
           "start_year": 2025,
           "end_year": 2026,
@@ -203,13 +111,15 @@
           "team_count": 12,
           "player_count": 494,
           "paths": {
-            "metadata": "data/japan-rugby-league-one-d1/2025-26/metadata.json",
-            "matches": "data/japan-rugby-league-one-d1/2025-26/matches.json",
-            "appearances": "data/japan-rugby-league-one-d1/2025-26/appearances.json",
-            "samurai_match_stats": "data/japan-rugby-league-one-d1/2025-26/samurai_match_stats.json",
-            "teams": "data/japan-rugby-league-one-d1/2025-26/teams.json",
-            "players": "data/japan-rugby-league-one-d1/2025-26/players.json"
-          }
+            "metadata": "data/japan-league-one-d1/2025-26/metadata.json",
+            "matches": "data/japan-league-one-d1/2025-26/matches.json",
+            "appearances": "data/japan-league-one-d1/2025-26/appearances.json",
+            "samurai_match_stats": "data/japan-league-one-d1/2025-26/samurai_match_stats.json",
+            "teams": "data/japan-league-one-d1/2025-26/teams.json",
+            "players": "data/japan-league-one-d1/2025-26/players.json",
+            "player_action_stats": "data/japan-league-one-d1/2025-26/player_action_stats.json"
+          },
+          "player_action_stat_count": 5177
         }
       ]
     }

@@ -33,6 +33,7 @@ def main() -> None:
         "matches",
         "appearances",
         "samurai_match_stats",
+        "player_action_stats",
         "teams",
         "players",
     ]
@@ -68,6 +69,19 @@ def main() -> None:
                 assert abs((stat.get("samurai_stats") or 0) - expected) < 1e-12, (
                     f"Samurai Stats denominator mismatch in {stat.get('samurai_match_stat_id')}"
                 )
+
+            for action_stat in loaded["player_action_stats"]:
+                required_action_fields = [
+                    "playing_ball_in_play_minutes", "positive_actions", "negative_actions", "net_actions",
+                    "ball_carry_attempts", "dominant_carries", "carry_metres", "post_contact_metres",
+                    "tackle_attempts", "tackles_made", "dominant_tackles",
+                    "ruck_ooa_attack_attempts", "ruck_ooa_attack_effective",
+                ]
+                for field_name in required_action_fields:
+                    assert field_name in action_stat, (
+                        f"Missing {field_name} in player action stat {action_stat.get('player_action_stat_id')}"
+                    )
+
 
     print("JSON OK")
 

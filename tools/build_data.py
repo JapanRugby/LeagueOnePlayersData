@@ -86,12 +86,33 @@ RUCK_DEFENSIVE_POSITIVE_TYPES = {"Nuisance", "Turnover Won", "Penalty Won"}
 RUCK_ATTACKING_NEGATIVE_TYPES = {"Failed Cleanout", "Attended", "Penalty Conceded"}
 RUCK_DEFENSIVE_NEGATIVE_TYPES = {"Not Clearing", "Got Cleaned Out", "Penalty Conceded"}
 
+# Stats Comparison definitions. These are kept separate from Samurai Positive/Negative
+# rules because the comparison screen uses rugby action metrics per 80 minutes.
+CARRY_ACTION_NAME = "Carry"
+DOMINANT_CARRY_QUALIFIER = "Dominant Contact"
+TACKLE_ACTION_NAME = "Tackle"
+MISSED_TACKLE_ACTION_NAME = "Missed Tackle"
+TACKLE_MADE_RESULTS = {"Complete", "Forced in Touch", "Passive", "Sack", "Try Saver", "Turnover Won"}
+DOMINANT_TACKLE_QUALIFIER = "Dominant Tackle"
+RUCK_OOA_ACTION_NAME = "Ruck OOA"
+RUCK_OOA_ATTACK_QUALIFIER = "Attacking OOA"
+RUCK_OOA_ATTACK_EFFECTIVE_TYPES = {"Cleaned Out", "Secured"}
+
 
 def safe_int(value: Any, default=None):
     if value is None or value == "":
         return default
     try:
         return int(float(value))
+    except Exception:
+        return default
+
+
+def safe_float(value: Any, default: float = 0.0) -> float:
+    if value is None or value == "":
+        return default
+    try:
+        return float(value)
     except Exception:
         return default
 
@@ -577,9 +598,72 @@ def parse_xml_files(
 
     return match_lookup, appearance_lookup
 
+def comparison_action_counts(row: dict[str, str]) -> dict[str, float]:
+    """Return one-row action counts used by the Stats Comparison screen.
+
+    Output is intentionally additive, so each BI event row contributes to all
+    matching comparison metrics. Per-80 and percentage calculations are done in
+    the browser from these match/player totals.
+    """
+    action_name = field(row, "ActionName", "actionName")
+    action_type = field(row, "ActionTypeName", "actionTypeName")
+    action_result = field(row, "ActionResultName", "actionResultName")
+    qualifier4 = field(row, "Qualifier4Name", "qualifier4Name")
+
+    is_carry = action_name == CARRY_ACTION_NAME
+    is_tackle = action_name == TACKLE_ACTION_NAME
+    is_missed_tackle = action_name == MISSED_TACKLE_ACTION_NAME
+    is_attack_ooa = action_name == RUCK_OOA_ACTION_NAME and qualifier4 == RUCK_OOA_ATTACK_QUALIFIER
+
+    return {
+        "ball_carry_attempts": int(is_carry),
+        "dominant_carries": int(is_carry and qualifier4 == DOMINANT_CARRY_QUALIFIER),
+        # BI export: Metres is the carry metres used for the comparison table.
+        "carry_metres": safe_float(field(row, "Metres")) if is_carry else 0.0,
+        # BI export: Metres3 is the post-contact metres field used in the review deck.
+        "post_contact_metres": safe_float(field(row, "Metres3")) if is_carry else 0.0,
+        "tackle_attempts": int(is_tackle or is_missed_tackle),
+        "tackles_made": int(is_tackle and action_result in TACKLE_MADE_RESULTS),
+        "dominant_tackles": int(is_tackle and qualifier4 == DOMINANT_TACKLE_QUALIFIER),
+        "ruck_ooa_attack_attempts": int(is_attack_ooa),
+        "ruck_ooa_attack_effective": int(is_attack_ooa and action_type in RUCK_OOA_ATTACK_EFFECTIVE_TYPES),
+    }
+
+
+def empty_player_action_stat(base: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "player_action_stat_id": base["samurai_match_stat_id"],
+        "match_id": base["match_id"],
+        "competition_id": base["competition_id"],
+        "season_id": base["season_id"],
+        "date": base["date"],
+        "team_id": base["team_id"],
+        "player_id": base["player_id"],
+        "team_name": base.get("team_name"),
+        "player_name": base.get("player_name"),
+        "minutes": base.get("minutes", 0),
+        "playing_ball_in_play_minutes": base.get("playing_ball_in_play_minutes", 0),
+        "ball_in_play_minutes": base.get("ball_in_play_minutes", base.get("playing_ball_in_play_minutes", 0)),
+        "positive_actions": 0,
+        "negative_actions": 0,
+        "net_actions": 0,
+        "samurai_stats": 0,
+        "ball_carry_attempts": 0,
+        "dominant_carries": 0,
+        "carry_metres": 0.0,
+        "post_contact_metres": 0.0,
+        "tackle_attempts": 0,
+        "tackles_made": 0,
+        "dominant_tackles": 0,
+        "ruck_ooa_attack_attempts": 0,
+        "ruck_ooa_attack_effective": 0,
+    }
+
+
 def parse_samurai_csv_files(input_dir: Path, season_payloads, match_lookup, appearance_lookup, competition_by_source_id, match_competition_lookup):
     csv_files = raw_csv_files(input_dir)
     samurai_groups: dict[tuple[str, str, str], dict[str, Any]] = {}
+    player_action_groups: dict[tuple[str, str, str], dict[str, Any]] = {}
 
     for path in csv_files:
         with path.open("r", encoding="utf-8-sig", newline="") as handle:
@@ -587,18 +671,13 @@ def parse_samurai_csv_files(input_dir: Path, season_payloads, match_lookup, appe
             if not looks_like_bi_csv(reader.fieldnames):
                 continue
             for row in reader:
-                positive = count_positive_actions(row)
-                negative = count_negative_actions(row)
-                if positive == 0 and negative == 0:
-                    continue
-
                 match_id = field(row, "FXID", "fxid") or csv_match_id_from_path(path)
                 player_id = field(row, "PLID")
                 team_id = field(row, "team_id", "TeamID")
                 player_name = field(row, "playerName", "PlayerName")
                 team_name = field(row, "teamName", "TeamName")
 
-                # Some BI rows describe team-level events. Keep Samurai Stats player-scoped.
+                # Some BI rows describe team-level events. Keep player-scoped metrics only.
                 if not player_id or not team_id or not player_name:
                     continue
 
@@ -629,7 +708,7 @@ def parse_samurai_csv_files(input_dir: Path, season_payloads, match_lookup, appe
                 key = (match_id, team_id, player_id)
                 if key not in samurai_groups:
                     app = appearance_lookup.get(key, {})
-                    samurai_groups[key] = {
+                    base = {
                         "samurai_match_stat_id": f"{match_id}:{team_id}:{player_id}",
                         "match_id": match_id,
                         "competition_id": competition_id,
@@ -650,17 +729,36 @@ def parse_samurai_csv_files(input_dir: Path, season_payloads, match_lookup, appe
                         "samurai_stats": 0,
                         "source_file": path.name,
                     }
+                    samurai_groups[key] = base
+                    player_action_groups[key] = empty_player_action_stat(base)
+
+                positive = count_positive_actions(row)
+                negative = count_negative_actions(row)
+                comparison_counts = comparison_action_counts(row)
+
                 stat = samurai_groups[key]
                 stat["positive_actions"] += positive
                 stat["negative_actions"] += negative
                 stat["net_actions"] += positive - negative
-                stat["event_rows_with_score"] += 1
+                if positive or negative:
+                    stat["event_rows_with_score"] += 1
 
-    for stat in samurai_groups.values():
+                action_stat = player_action_groups[key]
+                action_stat["positive_actions"] += positive
+                action_stat["negative_actions"] += negative
+                action_stat["net_actions"] += positive - negative
+                for metric, value in comparison_counts.items():
+                    action_stat[metric] += value
+
+    for key, stat in samurai_groups.items():
         denominator = stat.get("playing_ball_in_play_minutes", stat.get("ball_in_play_minutes", 0)) or 0
         stat["samurai_stats"] = stat["net_actions"] / denominator if denominator > 0 else 0
         season_key = (stat["competition_id"], stat["season_id"])
         season_payloads[season_key]["samurai_match_stats"].append(stat)
+
+        action_stat = player_action_groups[key]
+        action_stat["samurai_stats"] = stat["samurai_stats"]
+        season_payloads[season_key]["player_action_stats"].append(action_stat)
 
 def build(input_dir: Path, output_dir: Path, verbose: bool = False):
     prepared_input_dir, temp_dir = prepare_input_dir(input_dir, verbose=verbose)
@@ -680,6 +778,7 @@ def build(input_dir: Path, output_dir: Path, verbose: bool = False):
         "matches": [],
         "appearances": [],
         "samurai_match_stats": [],
+        "player_action_stats": [],
         "teams": {},
         "players": {},
     })
@@ -716,12 +815,25 @@ def build(input_dir: Path, output_dir: Path, verbose: bool = False):
 
     manifest = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "schema_version": "1.3.0",
+        "schema_version": "1.4.0",
         "metric_definitions": {
             "samurai_stats": "(positive_actions - negative_actions) / playing_ball_in_play_minutes",
             "rule_version": SAMURAI_RULE_VERSION,
             "positive_action_rules": POSITIVE_RULE_NAMES,
             "negative_action_rules": NEGATIVE_RULE_NAMES,
+            "comparison_metrics": {
+                "playing_minutes": "sum(minutes)",
+                "samurai_stats": "sum(net_actions) / sum(playing_ball_in_play_minutes)",
+                "ball_carry_attempt_per80": "sum(ball_carry_attempts) / sum(minutes) * 80",
+                "ball_carry_dominance_pct": "sum(dominant_carries) / sum(ball_carry_attempts) * 100",
+                "ball_carry_metres_per80": "sum(carry_metres) / sum(minutes) * 80",
+                "post_contact_metres_per80": "sum(post_contact_metres) / sum(minutes) * 80",
+                "tackle_attempt_per80": "sum(tackle_attempts) / sum(minutes) * 80",
+                "tackle_made_per80": "sum(tackles_made) / sum(minutes) * 80",
+                "tackle_dominance_pct": "sum(dominant_tackles) / sum(tackle_attempts) * 100",
+                "ruck_ooa_attack_attempt_per80": "sum(ruck_ooa_attack_attempts) / sum(minutes) * 80",
+                "ruck_ooa_attack_effectiveness_pct": "sum(ruck_ooa_attack_effective) / sum(ruck_ooa_attack_attempts) * 100"
+            },
             "important_notes": [
                 "Positive and Negative action rules mirror the supplied PowerBI/DAX measures: Actions Positive JRFU and Actions Negative JRFU.",
                 "Competitions are generated automatically from raw CSV/XML metadata. CSV competitionID/competitionName is preferred; XML FixData/Data FxTID is used as fallback.",
@@ -743,6 +855,7 @@ def build(input_dir: Path, output_dir: Path, verbose: bool = False):
         matches = sorted(payload["matches"], key=lambda x: (x["date"], x["match_id"]))
         appearances = sorted(payload["appearances"], key=lambda x: (x["date"], x["match_id"], x["team_id"] or "", x["shirt_no"] or 0))
         samurai_match_stats = sorted(payload["samurai_match_stats"], key=lambda x: (x["date"], x["match_id"], x["team_id"] or "", x["player_name"] or ""))
+        player_action_stats = sorted(payload["player_action_stats"], key=lambda x: (x["date"], x["match_id"], x["team_id"] or "", x["player_name"] or ""))
         teams = sorted(payload["teams"].values(), key=lambda x: x["name"] or "")
         players = sorted(payload["players"].values(), key=lambda x: x["display_name"] or "")
         dates = [m["date"] for m in matches]
@@ -761,6 +874,7 @@ def build(input_dir: Path, output_dir: Path, verbose: bool = False):
             "match_count": len(matches),
             "appearance_count": len(appearances),
             "samurai_match_stat_count": len(samurai_match_stats),
+            "player_action_stat_count": len(player_action_stats),
             "team_count": len(teams),
             "player_count": len(players),
         }
@@ -769,6 +883,7 @@ def build(input_dir: Path, output_dir: Path, verbose: bool = False):
             ("matches", matches),
             ("appearances", appearances),
             ("samurai_match_stats", samurai_match_stats),
+            ("player_action_stats", player_action_stats),
             ("teams", teams),
             ("players", players),
         ]:
@@ -778,6 +893,7 @@ def build(input_dir: Path, output_dir: Path, verbose: bool = False):
             "matches": f"data/{competition_id}/{season_id}/matches.json",
             "appearances": f"data/{competition_id}/{season_id}/appearances.json",
             "samurai_match_stats": f"data/{competition_id}/{season_id}/samurai_match_stats.json",
+            "player_action_stats": f"data/{competition_id}/{season_id}/player_action_stats.json",
             "teams": f"data/{competition_id}/{season_id}/teams.json",
             "players": f"data/{competition_id}/{season_id}/players.json",
         }

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stats Comparison | Samurai Stats</title>
+  <meta name="description" content="選手を最大10名まで選び、Playing Minutes、Samurai Stats、Carry、Tackle、Ruck OOAをper80で比較します。" />
+  <link rel="stylesheet" href="./assets/styles.css" />
+</head>
+<body>
+  <header class="site-header compare-header">
+    <div>
+      <p class="eyebrow">JAPAN RUGBY PERFORMANCE REVIEW HUB</p>
+      <h1>Stats Comparison</h1>
+      <p class="lead">最大10名の選手を選択し、Playing Minutes、Samurai Stats、Carry、Tackle、Ruck OOAの主要指標を比較します。Samurai Stats以外の数量指標はper 80minsで表示します。</p>
+    </div>
+    <div class="header-actions">
+      <a class="ghost-button" href="./index.html">Rankingへ戻る</a>
+      <button id="copyCompareLinkButton" class="ghost-button" type="button">現在の条件をコピー</button>
+      <button id="exportCompareCsvButton" class="primary-button" type="button">CSV出力</button>
+    </div>
+  </header>
+
+  <main class="page-shell compare-shell">
+    <section class="filters-card" aria-label="比較フィルター">
+      <div class="filter-grid compare-filter-grid">
+        <label>
+          <span>コンペティション</span>
+          <select id="competitionSelect"></select>
+        </label>
+        <label>
+          <span>シーズン</span>
+          <select id="seasonSelect"></select>
+        </label>
+        <label>
+          <span>チーム</span>
+          <select id="teamSelect"></select>
+        </label>
+        <label>
+          <span>ポジション</span>
+          <select id="positionSelect"></select>
+        </label>
+        <label class="date-field">
+          <span>開始日</span>
+          <input id="startDateInput" type="date" />
+        </label>
+        <label class="date-field">
+          <span>終了日</span>
+          <input id="endDateInput" type="date" />
+        </label>
+        <label class="minutes-filter-field">
+          <span>最低出場時間 <strong id="minMinutesValue">0分超</strong></span>
+          <input id="minMinutesSlider" type="range" min="0" max="0" step="1" value="0" />
+        </label>
+        <label class="search-field">
+          <span>選手検索</span>
+          <input id="playerSearchInput" type="search" placeholder="選手名・チーム名で絞り込み" autocomplete="off" />
+        </label>
+        <label class="player-select-field">
+          <span>比較に追加する選手</span>
+          <select id="playerSelect"></select>
+        </label>
+        <div class="compare-add-field">
+          <span>&nbsp;</span>
+          <button id="addPlayerButton" class="primary-button" type="button">選手を追加</button>
+        </div>
+      </div>
+      <div class="preset-row" aria-label="期間プリセット">
+        <button type="button" data-preset="all">全期間</button>
+        <button type="button" data-preset="latest-30-days">最新30日</button>
+        <button type="button" data-preset="latest-1-matchday">最新1開催</button>
+        <button type="button" data-preset="latest-5-matchdays">最新5開催日</button>
+        <button type="button" data-preset="latest-10-matchdays">最新10開催日</button>
+        <button type="button" id="resetButton">条件をリセット</button>
+      </div>
+      <p class="rule-note">比較は最大10名までです。Playing MinutesとSamurai Statsはそのまま表示し、Carry / Tackle / Ruck OOAの数量指標はper 80mins、割合指標は%で表示します。各列の最大値をハイライトします。</p>
+    </section>
+
+    <section class="summary-grid compare-summary" aria-label="比較概要">
+      <article><span>対象期間</span><strong id="periodSummary">-</strong></article>
+      <article><span>比較対象</span><strong id="selectedSummary">0 / 10</strong></article>
+      <article><span>候補選手</span><strong id="candidateSummary">-</strong></article>
+      <article><span>最小出場時間</span><strong id="minutesSummary">-</strong></article>
+    </section>
+
+    <section class="compare-selection-card">
+      <div class="table-toolbar compact-toolbar">
+        <div>
+          <h2>Selected Players</h2>
+          <p id="compareStatusText">選手を追加してください。</p>
+        </div>
+        <button id="clearPlayersButton" class="ghost-button" type="button">選択をクリア</button>
+      </div>
+      <div id="selectedPlayers" class="selected-player-chips"></div>
+    </section>
+
+    <section class="table-card comparison-card">
+      <div class="table-toolbar">
+        <div>
+          <h2>Stats Comparison <span class="comparison-subtitle">ALL STATS per 80mins</span></h2>
+          <p>高い数値のセルをハイライトします。同率1位は複数ハイライトされます。</p>
+        </div>
+      </div>
+      <div class="table-wrap comparison-table-wrap">
+        <table id="comparisonTable" class="comparison-table">
+          <thead>
+            <tr>
+              <th>選手</th>
+              <th>チーム</th>
+              <th class="numeric">Playing<br>Mins</th>
+              <th class="numeric primary-metric">Samurai<br>Stats</th>
+              <th class="numeric">Carry<br>Attempt</th>
+              <th class="numeric">Carry<br>Dominance %</th>
+              <th class="numeric">Carry<br>Metres</th>
+              <th class="numeric">PCM</th>
+              <th class="numeric">Tackle<br>Attempt</th>
+              <th class="numeric">Tackle<br>Made</th>
+              <th class="numeric">Tackle<br>Dominance %</th>
+              <th class="numeric">Ruck OOA Attack<br>Attempt</th>
+              <th class="numeric">Ruck OOA<br>Effectiveness %</th>
+            </tr>
+          </thead>
+          <tbody id="comparisonBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Definitions are generated from BI CSV/XML. Verify source and derived-data publishing rights before making the repository public.</p>
+  </footer>
+
+  <script src="./assets/compare.js" defer></script>
+</body>
+</html>

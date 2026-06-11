@@ -45,6 +45,7 @@ Positive側のVAR名は `manifest.json` の `metric_definitions.positive_action_
 - ポジション絞り込み
 - 選手名検索
 - 日付範囲指定
+- 出場時間の最小値スライダー
 - プリセット期間
   - 全期間
   - 最新30日
@@ -240,3 +241,22 @@ GitHub Actionsによる自動コミットを使うため、リポジトリの **
 - 選手詳細ページのURL化
 - チームページの追加
 - 試合ごとのSamurai Stats比較
+
+
+## Stats Comparison
+
+`docs/compare.html` に選手比較画面を追加しています。最大10名まで選手を選択でき、以下を比較します。
+
+- Playing Minutes: 合計出場時間
+- Samurai Stats: `sum(net_actions) / sum(playing_ball_in_play_minutes)`。per80変換しません
+- Ball Carry Attempt: per 80mins
+- Ball Carry Dominance%
+- Ball Carry Metres: per 80mins
+- Post Contact Metres: per 80mins
+- Tackle Attempt: per 80mins
+- Tackle Made: per 80mins
+- Tackle Dominance%
+- Ruck OOA Attack Attempt: per 80mins
+- Ruck OOA Effectiveness%
+
+比較表では各列の最大値をハイライトします。同率1位はすべてハイライトされます。比較用データは `tools/build_data.py` が `player_action_stats.json` として生成します。

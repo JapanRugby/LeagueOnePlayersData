@@ -1,11 +1,11 @@
-# Raw/proprietary data
-data/raw/*
-!data/raw/.gitkeep
+# Keep raw CSV/XML trackable for the auto-update workflow.
+# Do not commit local archives or generated caches.
 *.zip
 
 # OS files
 .DS_Store
 __MACOSX/
+._*
 
 # Python
 __pycache__/

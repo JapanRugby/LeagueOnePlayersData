@@ -2,11 +2,12 @@
 """Build static JSON data for the GitHub Pages site.
 
 Usage:
-  python tools/build_data.py --input data/raw/LO --output docs/data
+  python tools/build_data.py --input data/raw --output docs/data
 
-The raw XML/CSV files are intentionally not committed by default. Put your
-`*_advanced_superscout.xml` and matching `*_BI.csv` files under data/raw/LO,
-then run this script.
+Put `*_advanced_superscout.xml` and matching `*_BI.csv` files anywhere under
+data/raw. The script scans the raw directory recursively, so both of these work:
+  data/raw/LO/948799_HEATvSHBR_BI.csv
+  data/raw/2026-27/round-01/948799_HEATvSHBR_BI.csv
 """
 from __future__ import annotations
 
@@ -112,6 +113,17 @@ def role_from_shirt(shirt_no):
         return "reserve"
     return "unknown"
 
+
+
+
+def is_real_raw_file(path: Path) -> bool:
+    """Ignore macOS resource-fork files and extracted archive metadata."""
+    parts = set(path.parts)
+    if "__MACOSX" in parts:
+        return False
+    if path.name.startswith("._"):
+        return False
+    return True
 
 def field(row: dict[str, str], *names: str) -> str:
     """Return the first matching CSV field.
@@ -240,7 +252,7 @@ def parse_xml_files(input_dir: Path, season_payloads, seasons, teams_global, pla
     match_lookup = {}
     appearance_lookup = {}
 
-    xml_files = sorted(input_dir.glob("*_advanced_superscout.xml"))
+    xml_files = sorted(path for path in input_dir.rglob("*_advanced_superscout.xml") if is_real_raw_file(path))
     if not xml_files:
         raise SystemExit(f"No *_advanced_superscout.xml files found in {input_dir}")
 
@@ -350,7 +362,7 @@ def parse_xml_files(input_dir: Path, season_payloads, seasons, teams_global, pla
 
 
 def parse_samurai_csv_files(input_dir: Path, season_payloads, match_lookup, appearance_lookup):
-    csv_files = sorted(input_dir.glob("*_BI.csv"))
+    csv_files = sorted(path for path in input_dir.rglob("*_BI.csv") if is_real_raw_file(path))
     samurai_groups: dict[tuple[str, str, str], dict[str, Any]] = {}
 
     for path in csv_files:
@@ -498,7 +510,7 @@ def build(input_dir: Path, output_dir: Path):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", default="data/raw/LO", type=Path)
+    parser.add_argument("--input", default="data/raw", type=Path)
     parser.add_argument("--output", default="docs/data", type=Path)
     args = parser.parse_args()
     build(args.input, args.output)

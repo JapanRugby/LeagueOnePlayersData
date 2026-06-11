@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+    paths-ignore:
+      - 'data/raw/**'
 
 jobs:
   validate:
@@ -16,23 +18,4 @@ jobs:
       - name: Test Samurai rules
         run: python3 tools/test_samurai_rules.py
       - name: Validate public JSON
-        run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          manifest = json.loads(Path('docs/data/manifest.json').read_text(encoding='utf-8'))
-          assert manifest.get('competitions'), 'No competitions in manifest'
-          metric_definitions = manifest.get('metric_definitions', {})
-          assert metric_definitions.get('samurai_stats'), (
-              'Missing metric_definitions.samurai_stats in docs/data/manifest.json. '
-              'Regenerate data with: python3 tools/build_data.py --raw-dir data/raw --out-dir docs/data'
-          )
-          for competition in manifest['competitions']:
-              for season in competition['seasons']:
-                  base = Path('docs/data') / competition['competition_id'] / season['season_id']
-                  for name in ['metadata', 'matches', 'appearances', 'samurai_match_stats', 'teams', 'players']:
-                      path = base / f'{name}.json'
-                      assert path.exists(), f'Missing {path}'
-                      json.loads(path.read_text(encoding='utf-8'))
-          print('JSON OK')
-          PY
+        run: python3 tools/validate_public_data.py

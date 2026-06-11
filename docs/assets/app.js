@@ -7,7 +7,6 @@ const state = {
     season: null,
     team: 'all',
     position: 'all',
-    displayMode: 'total',
     q: '',
     start: '',
     end: '',
@@ -22,7 +21,6 @@ const els = {
   seasonSelect: document.querySelector('#seasonSelect'),
   teamSelect: document.querySelector('#teamSelect'),
   positionSelect: document.querySelector('#positionSelect'),
-  displayModeSelect: document.querySelector('#displayModeSelect'),
   startDateInput: document.querySelector('#startDateInput'),
   endDateInput: document.querySelector('#endDateInput'),
   searchInput: document.querySelector('#searchInput'),
@@ -33,12 +31,12 @@ const els = {
   matchSummary: document.querySelector('#matchSummary'),
   playerSummary: document.querySelector('#playerSummary'),
   bipSummary: document.querySelector('#bipSummary'),
-  positiveSummary: document.querySelector('#positiveSummary'),
-  negativeSummary: document.querySelector('#negativeSummary'),
+  playerPanelOverlay: document.querySelector('#playerPanelOverlay'),
   playerPanel: document.querySelector('#playerPanel'),
   panelTitle: document.querySelector('#panelTitle'),
   panelSubtitle: document.querySelector('#panelSubtitle'),
   panelStats: document.querySelector('#panelStats'),
+  samuraiChart: document.querySelector('#samuraiChart'),
   matchLogBody: document.querySelector('#matchLogBody'),
   closePanelButton: document.querySelector('#closePanelButton'),
   exportCsvButton: document.querySelector('#exportCsvButton'),
@@ -85,7 +83,6 @@ function readUrlParams() {
   state.filters.season = get('season', state.filters.season);
   state.filters.team = get('team', 'all');
   state.filters.position = get('position', 'all');
-  state.filters.displayMode = ['total', 'per-game', 'per80'].includes(get('display', 'total')) ? get('display', 'total') : 'total';
   state.filters.q = get('q', '');
   state.filters.start = get('start', '');
   state.filters.end = get('end', '');
@@ -100,7 +97,6 @@ function syncUrl() {
   if (f.season) params.set('season', f.season);
   if (f.team && f.team !== 'all') params.set('team', f.team);
   if (f.position && f.position !== 'all') params.set('position', f.position);
-  if (f.displayMode && f.displayMode !== 'total') params.set('display', f.displayMode);
   if (f.q) params.set('q', f.q);
   if (f.start) params.set('start', f.start);
   if (f.end) params.set('end', f.end);
@@ -135,7 +131,6 @@ function populateInitialControls() {
     state.manifest.positions.map((p) => ({ value: String(p.position_id), label: `${p.position_id}. ${p.ja || p.en}` }))
   );
   setSelectOptions(els.positionSelect, posOptions, state.filters.position || 'all');
-  els.displayModeSelect.value = state.filters.displayMode;
 }
 
 function populateSeasonSelect() {
@@ -231,7 +226,6 @@ function syncControlsFromState() {
   els.seasonSelect.value = state.filters.season;
   els.teamSelect.value = state.filters.team;
   els.positionSelect.value = state.filters.position;
-  els.displayModeSelect.value = state.filters.displayMode;
   els.startDateInput.value = state.filters.start;
   els.endDateInput.value = state.filters.end;
   els.searchInput.value = state.filters.q;
@@ -392,16 +386,11 @@ function renderSummary() {
   const baseAppearances = appearancesForDateAndTeam();
   const matchIds = new Set(baseAppearances.map((a) => a.match_id));
   const totalBip = state.rows.reduce((sum, row) => sum + row.playing_ball_in_play_minutes, 0);
-  const totalPositive = state.rows.reduce((sum, row) => sum + row.positive_actions, 0);
-  const totalNegative = state.rows.reduce((sum, row) => sum + row.negative_actions, 0);
   els.periodSummary.textContent = `${state.filters.start || '-'} 〜 ${state.filters.end || '-'}`;
   els.matchSummary.textContent = `${numberFmt.format(matchIds.size)} 試合`;
   els.playerSummary.textContent = `${numberFmt.format(state.rows.length)} 選手`;
   els.bipSummary.textContent = `${numberFmt.format(totalBip)} 分`;
-  els.positiveSummary.textContent = numberFmt.format(totalPositive);
-  els.negativeSummary.textContent = numberFmt.format(totalNegative);
-  const modeLabel = state.filters.displayMode === 'total' ? 'Total' : state.filters.displayMode === 'per-game' ? 'Per Game' : 'Per80';
-  els.statusText.textContent = `${numberFmt.format(state.rows.length)}件を表示中 / Positive・Negative表示: ${modeLabel}`;
+  els.statusText.textContent = `${numberFmt.format(state.rows.length)}件を表示中`;
 }
 
 function formatActionDisplay(value) {
@@ -410,7 +399,7 @@ function formatActionDisplay(value) {
 
 function renderTable() {
   if (!state.rows.length) {
-    els.statsBody.innerHTML = `<tr><td colspan="12" class="empty-state">条件に一致する選手がいません。</td></tr>`;
+    els.statsBody.innerHTML = `<tr><td colspan="8" class="empty-state">条件に一致する選手がいません。</td></tr>`;
     return;
   }
   els.statsBody.innerHTML = state.rows.map((row) => `
@@ -418,15 +407,11 @@ function renderTable() {
       <td><span class="player-name">${escapeHtml(row.player_name)}</span></td>
       <td><span class="team-chip" style="--team-color:${escapeHtml(row.team_color)}">${escapeHtml(row.team_name)}</span></td>
       <td>${escapeHtml(row.position_label)}</td>
-      <td class="numeric primary-metric">${samuraiFmt.format(row.samurai_stats)}</td>
-      <td class="numeric">${formatActionDisplay(row.positive_display)}</td>
-      <td class="numeric">${formatActionDisplay(row.negative_display)}</td>
-      <td class="numeric">${formatActionDisplay(row.net_display)}</td>
-      <td class="numeric">${numberFmt.format(row.playing_ball_in_play_minutes)}</td>
       <td class="numeric">${numberFmt.format(row.minutes)}</td>
       <td class="numeric">${numberFmt.format(row.appearances)}</td>
       <td class="numeric">${numberFmt.format(row.starts)}</td>
       <td class="numeric">${numberFmt.format(row.reserve_selections)}</td>
+      <td class="numeric primary-metric">${samuraiFmt.format(row.samurai_stats)}</td>
     </tr>
   `).join('');
 }
@@ -438,45 +423,104 @@ function renderSortIndicators() {
   });
 }
 
+function playerMatchLogRecords(playerKey) {
+  return appearancesForDateAndTeam()
+    .filter((a) => `${a.player_id}|${a.team_id}` === playerKey)
+    .map((a) => {
+      const match = matchById.get(a.match_id);
+      const team = teamById.get(a.team_id) || { name: a.team_name };
+      const stat = samuraiByAppearanceKey.get(samuraiKey(a.match_id, a.team_id, a.player_id)) || { positive_actions: 0, negative_actions: 0, net_actions: 0 };
+      const bip = playingBipMinutes(a) || playingBipMinutes(stat);
+      const samurai = bip > 0 ? (stat.net_actions || 0) / bip : 0;
+      let opponent = '-';
+      if (match) {
+        opponent = a.team_id === match.home_team_id ? match.away_team_name : match.home_team_name;
+        const side = a.team_id === match.home_team_id ? 'H' : 'A';
+        const score = match.home_score != null && match.away_score != null ? ` ${match.home_score}-${match.away_score}` : '';
+        opponent = `${opponent} (${side}${score})`;
+      }
+      const role = a.started ? '先発' : a.reserve_selected ? (a.played ? '途中出場' : 'リザーブ未出場') : '不明';
+      return { appearance: a, match, team, bip, samurai, opponent, role };
+    });
+}
+
+function renderSamuraiChart(logs) {
+  const ordered = [...logs].sort((a, b) => `${a.appearance.date}${a.appearance.match_id}`.localeCompare(`${b.appearance.date}${b.appearance.match_id}`));
+  if (!ordered.length) {
+    els.samuraiChart.innerHTML = '<div class="empty-state">グラフ化できる試合ログがありません。</div>';
+    return;
+  }
+  const width = 760;
+  const height = 260;
+  const margin = { top: 28, right: 28, bottom: 48, left: 58 };
+  const plotW = width - margin.left - margin.right;
+  const plotH = height - margin.top - margin.bottom;
+  const values = ordered.map((d) => d.samurai);
+  let yMin = Math.min(0, ...values);
+  let yMax = Math.max(0, ...values);
+  if (yMin === yMax) {
+    yMin -= 0.1;
+    yMax += 0.1;
+  }
+  const padding = (yMax - yMin) * 0.12;
+  yMin -= padding;
+  yMax += padding;
+  const x = (index) => margin.left + (ordered.length === 1 ? plotW / 2 : (plotW * index) / (ordered.length - 1));
+  const y = (value) => margin.top + ((yMax - value) / (yMax - yMin)) * plotH;
+  const points = ordered.map((d, i) => `${x(i)},${y(d.samurai)}`).join(' ');
+  const zeroY = y(0);
+  const yTicks = [yMin, (yMin + yMax) / 2, yMax];
+  const xLabels = ordered.map((d, i) => {
+    if (ordered.length > 8 && i !== 0 && i !== ordered.length - 1 && i % Math.ceil(ordered.length / 6) !== 0) return '';
+    const label = d.appearance.date.slice(5);
+    return `<text x="${x(i)}" y="${height - 18}" text-anchor="middle" class="chart-label">${escapeHtml(label)}</text>`;
+  }).join('');
+  const circles = ordered.map((d, i) => `
+    <g>
+      <circle cx="${x(i)}" cy="${y(d.samurai)}" r="4" class="chart-point" />
+      <title>${escapeHtml(d.appearance.date)} / ${escapeHtml(d.opponent)} / Samurai ${samuraiFmt.format(d.samurai)}</title>
+    </g>
+  `).join('');
+  els.samuraiChart.innerHTML = `
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="試合ごとのSamurai Stats推移">
+      <line x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}" class="chart-axis" />
+      <line x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}" class="chart-axis" />
+      <line x1="${margin.left}" y1="${zeroY}" x2="${width - margin.right}" y2="${zeroY}" class="chart-zero" />
+      ${yTicks.map((tick) => `
+        <line x1="${margin.left}" y1="${y(tick)}" x2="${width - margin.right}" y2="${y(tick)}" class="chart-grid" />
+        <text x="${margin.left - 10}" y="${y(tick) + 4}" text-anchor="end" class="chart-label">${samuraiFmt.format(tick)}</text>
+      `).join('')}
+      <polyline points="${points}" class="chart-line" />
+      ${circles}
+      ${xLabels}
+    </svg>
+  `;
+}
+
 function renderPlayerPanel(playerKey) {
   const row = state.rows.find((r) => r.key === playerKey);
   if (!row) {
-    els.playerPanel.hidden = true;
+    els.playerPanelOverlay.hidden = true;
     state.selectedPlayerKey = null;
     return;
   }
   state.selectedPlayerKey = playerKey;
-  els.playerPanel.hidden = false;
+  els.playerPanelOverlay.hidden = false;
   els.panelTitle.textContent = row.player_name;
   els.panelSubtitle.textContent = `${row.team_name} / ${row.position_label}`;
   els.panelStats.innerHTML = [
-    `Samurai ${samuraiFmt.format(row.samurai_stats)}`,
-    `Positive ${numberFmt.format(row.positive_actions)}`,
-    `Negative ${numberFmt.format(row.negative_actions)}`,
-    `Net ${numberFmt.format(row.net_actions)}`,
-    `Playing BIP ${numberFmt.format(row.playing_ball_in_play_minutes)}分`,
     `出場時間 ${numberFmt.format(row.minutes)}分`,
-    `出場試合 ${numberFmt.format(row.appearances)}`,
+    `出場数 ${numberFmt.format(row.appearances)}`,
+    `スターティング ${numberFmt.format(row.starts)}`,
+    `リザーブ ${numberFmt.format(row.reserve_selections)}`,
+    `Samurai Stats ${samuraiFmt.format(row.samurai_stats)}`,
   ].map((text) => `<span>${escapeHtml(text)}</span>`).join('');
 
-  const logs = appearancesForDateAndTeam()
-    .filter((a) => `${a.player_id}|${a.team_id}` === playerKey)
-    .sort((a, b) => `${b.date}${b.match_id}`.localeCompare(`${a.date}${a.match_id}`));
-  els.matchLogBody.innerHTML = logs.map((a) => {
-    const match = matchById.get(a.match_id);
-    const team = teamById.get(a.team_id) || { name: a.team_name };
-    const stat = samuraiByAppearanceKey.get(samuraiKey(a.match_id, a.team_id, a.player_id)) || { positive_actions: 0, negative_actions: 0, net_actions: 0 };
-    const bip = playingBipMinutes(a) || playingBipMinutes(stat);
-    const matchSamurai = bip > 0 ? (stat.net_actions || 0) / bip : 0;
-    let opponent = '-';
-    if (match) {
-      opponent = a.team_id === match.home_team_id ? match.away_team_name : match.home_team_name;
-      const side = a.team_id === match.home_team_id ? 'H' : 'A';
-      const score = match.home_score != null && match.away_score != null ? ` ${match.home_score}-${match.away_score}` : '';
-      opponent = `${opponent} (${side}${score})`;
-    }
-    const role = a.started ? '先発' : a.reserve_selected ? (a.played ? '途中出場' : 'リザーブ未出場') : '不明';
-    return `
+  const logs = playerMatchLogRecords(playerKey);
+  renderSamuraiChart(logs);
+
+  const tableLogs = [...logs].sort((a, b) => `${b.appearance.date}${b.appearance.match_id}`.localeCompare(`${a.appearance.date}${a.appearance.match_id}`));
+  els.matchLogBody.innerHTML = tableLogs.map(({ appearance: a, team, bip, samurai, opponent, role }) => `
       <tr>
         <td>${escapeHtml(a.date)}</td>
         <td>${escapeHtml(a.season_id)}</td>
@@ -486,13 +530,9 @@ function renderPlayerPanel(playerKey) {
         <td><span class="role-pill">${escapeHtml(role)}</span></td>
         <td class="numeric">${numberFmt.format(a.minutes || 0)}</td>
         <td class="numeric">${numberFmt.format(bip)}</td>
-        <td class="numeric">${numberFmt.format(stat.positive_actions || 0)}</td>
-        <td class="numeric">${numberFmt.format(stat.negative_actions || 0)}</td>
-        <td class="numeric primary-metric">${samuraiFmt.format(matchSamurai)}</td>
+        <td class="numeric primary-metric">${samuraiFmt.format(samurai)}</td>
       </tr>
-    `;
-  }).join('');
-  els.playerPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    `).join('');
 }
 
 function presetDateList() {
@@ -534,15 +574,13 @@ function exportCsv() {
     return;
   }
   const header = [
-    'player_id','player_name','team_id','team_name','position','samurai_stats','positive_actions','negative_actions','net_actions',
-    'positive_display','negative_display','net_display','display_mode','playing_ball_in_play_minutes','minutes','appearances','starts',
-    'reserve_selections','bench_appearances','unused_reserve','start_date','end_date'
+    'competition_id','season_filter','player_id','player_name','team_id','team_name','position',
+    'minutes','appearances','starts','reserve_selections','samurai_stats','playing_ball_in_play_minutes','start_date','end_date'
   ];
   const rows = state.rows.map((r) => [
-    r.player_id, r.player_name, r.team_id, r.team_name, r.position_label, r.samurai_stats,
-    r.positive_actions, r.negative_actions, r.net_actions, r.positive_display, r.negative_display, r.net_display,
-    state.filters.displayMode, r.playing_ball_in_play_minutes, r.minutes, r.appearances, r.starts,
-    r.reserve_selections, r.bench_appearances, r.unused_reserve, state.filters.start, state.filters.end,
+    state.filters.competition, state.filters.season, r.player_id, r.player_name, r.team_id, r.team_name, r.position_label,
+    r.minutes, r.appearances, r.starts, r.reserve_selections, r.samurai_stats, r.playing_ball_in_play_minutes,
+    state.filters.start, state.filters.end,
   ]);
   const csv = [header, ...rows].map((row) => row.map((v) => `"${String(v ?? '').replaceAll('"', '""')}"`).join(',')).join('\n');
   const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
@@ -579,7 +617,6 @@ function bindEvents() {
   });
   els.teamSelect.addEventListener('change', () => { state.filters.team = els.teamSelect.value; render(); });
   els.positionSelect.addEventListener('change', () => { state.filters.position = els.positionSelect.value; render(); });
-  els.displayModeSelect.addEventListener('change', () => { state.filters.displayMode = els.displayModeSelect.value; render(); });
   els.startDateInput.addEventListener('change', () => { state.filters.start = els.startDateInput.value; render(); });
   els.endDateInput.addEventListener('change', () => { state.filters.end = els.endDateInput.value; render(); });
   els.searchInput.addEventListener('input', () => { state.filters.q = els.searchInput.value.trim(); render(); });
@@ -587,7 +624,6 @@ function bindEvents() {
   els.resetButton.addEventListener('click', () => {
     state.filters.team = 'all';
     state.filters.position = 'all';
-    state.filters.displayMode = 'total';
     state.filters.q = '';
     applyPreset('all');
   });
@@ -603,7 +639,19 @@ function bindEvents() {
     const tr = event.target.closest('tr[data-player-key]');
     if (tr) renderPlayerPanel(tr.dataset.playerKey);
   });
-  els.closePanelButton.addEventListener('click', () => { els.playerPanel.hidden = true; state.selectedPlayerKey = null; });
+  els.closePanelButton.addEventListener('click', () => { els.playerPanelOverlay.hidden = true; state.selectedPlayerKey = null; });
+  els.playerPanelOverlay.addEventListener('click', (event) => {
+    if (event.target === els.playerPanelOverlay) {
+      els.playerPanelOverlay.hidden = true;
+      state.selectedPlayerKey = null;
+    }
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !els.playerPanelOverlay.hidden) {
+      els.playerPanelOverlay.hidden = true;
+      state.selectedPlayerKey = null;
+    }
+  });
   els.exportCsvButton.addEventListener('click', exportCsv);
   els.copyLinkButton.addEventListener('click', async () => {
     syncUrl();

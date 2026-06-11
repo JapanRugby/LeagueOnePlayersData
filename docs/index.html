@@ -40,14 +40,6 @@
           <span>ポジション</span>
           <select id="positionSelect"></select>
         </label>
-        <label>
-          <span>表示モード</span>
-          <select id="displayModeSelect">
-            <option value="total">Total</option>
-            <option value="per-game">Per Game</option>
-            <option value="per80">Per80</option>
-          </select>
-        </label>
         <label class="date-field">
           <span>開始日</span>
           <input id="startDateInput" type="date" />
@@ -68,7 +60,7 @@
         <button type="button" data-preset="latest-10-matchdays">最新10開催日</button>
         <button type="button" id="resetButton">条件をリセット</button>
       </div>
-      <p class="rule-note">Positive / Negativeは1イベント行が複数条件に該当した場合に複数カウントします。Samurai Stats本体は常に選手ごとのPlaying BIP分あたりのrateなので、表示モードを変えても値は変わりません。</p>
+      <p class="rule-note">Positive / Negativeは1イベント行が複数条件に該当した場合に複数カウントします。Samurai Statsは常に選手ごとのPlaying BIP分あたりのrateとして扱います。</p>
     </section>
 
     <section class="summary-grid" aria-label="集計概要">
@@ -76,8 +68,6 @@
       <article><span>対象試合</span><strong id="matchSummary">-</strong></article>
       <article><span>対象選手</span><strong id="playerSummary">-</strong></article>
       <article><span>合計Playing BIP分</span><strong id="bipSummary">-</strong></article>
-      <article><span>Positive</span><strong id="positiveSummary">-</strong></article>
-      <article><span>Negative</span><strong id="negativeSummary">-</strong></article>
     </section>
 
     <section class="table-card">
@@ -95,15 +85,11 @@
               <th data-sort="player_name">選手</th>
               <th data-sort="team_name">チーム</th>
               <th data-sort="position_label">主な位置</th>
-              <th data-sort="samurai_stats" class="numeric primary-metric">Samurai Stats</th>
-              <th data-sort="positive_display" class="numeric">Positive</th>
-              <th data-sort="negative_display" class="numeric">Negative</th>
-              <th data-sort="net_display" class="numeric">Net</th>
-              <th data-sort="playing_ball_in_play_minutes" class="numeric">Playing BIP分</th>
               <th data-sort="minutes" class="numeric">出場時間</th>
-              <th data-sort="appearances" class="numeric">出場試合</th>
-              <th data-sort="starts" class="numeric">先発</th>
-              <th data-sort="reserve_selections" class="numeric">リザーブ登録</th>
+              <th data-sort="appearances" class="numeric">出場数</th>
+              <th data-sort="starts" class="numeric">スターティング</th>
+              <th data-sort="reserve_selections" class="numeric">リザーブ</th>
+              <th data-sort="samurai_stats" class="numeric primary-metric">Samurai Stats</th>
             </tr>
           </thead>
           <tbody id="statsBody"></tbody>
@@ -111,37 +97,44 @@
       </div>
     </section>
 
-    <aside id="playerPanel" class="player-panel" hidden>
-      <div class="panel-header">
-        <div>
-          <p class="eyebrow">Player Match Log</p>
-          <h2 id="panelTitle">選手詳細</h2>
-          <p id="panelSubtitle"></p>
+    <div id="playerPanelOverlay" class="modal-overlay" hidden>
+      <aside id="playerPanel" class="player-panel modal-dialog" role="dialog" aria-modal="true" aria-labelledby="panelTitle">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Player Match Log</p>
+            <h2 id="panelTitle">選手詳細</h2>
+            <p id="panelSubtitle"></p>
+          </div>
+          <button id="closePanelButton" class="ghost-button" type="button">閉じる</button>
         </div>
-        <button id="closePanelButton" class="ghost-button" type="button">閉じる</button>
-      </div>
-      <div id="panelStats" class="mini-stats"></div>
-      <div class="table-wrap compact">
-        <table>
-          <thead>
-            <tr>
-              <th>日付</th>
-              <th>シーズン</th>
-              <th>チーム</th>
-              <th>相手</th>
-              <th class="numeric">背番号</th>
-              <th>役割</th>
-              <th class="numeric">分</th>
-              <th class="numeric">Playing BIP分</th>
-              <th class="numeric">Positive</th>
-              <th class="numeric">Negative</th>
-              <th class="numeric">Samurai</th>
-            </tr>
-          </thead>
-          <tbody id="matchLogBody"></tbody>
-        </table>
-      </div>
-    </aside>
+        <div id="panelStats" class="mini-stats"></div>
+        <section class="chart-card" aria-label="Samurai Statsグラフ">
+          <div class="chart-header">
+            <h3>Samurai Stats Graph</h3>
+            <p>試合ごとのSamurai Stats推移</p>
+          </div>
+          <div id="samuraiChart" class="samurai-chart"></div>
+        </section>
+        <div class="table-wrap compact">
+          <table>
+            <thead>
+              <tr>
+                <th>日付</th>
+                <th>シーズン</th>
+                <th>チーム</th>
+                <th>相手</th>
+                <th class="numeric">背番号</th>
+                <th>役割</th>
+                <th class="numeric">出場時間</th>
+                <th class="numeric">Playing BIP分</th>
+                <th class="numeric primary-metric">Samurai Stats</th>
+              </tr>
+            </thead>
+            <tbody id="matchLogBody"></tbody>
+          </table>
+        </div>
+      </aside>
+    </div>
   </main>
 
   <footer class="site-footer">

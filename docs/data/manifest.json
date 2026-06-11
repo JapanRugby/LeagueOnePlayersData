@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-11T17:01:03.180882+00:00",
+  "generated_at": "2026-06-11T17:08:21.456226+00:00",
   "schema_version": "1.4.0",
   "metric_definitions": {
     "samurai_stats": "(positive_actions - negative_actions) / playing_ball_in_play_minutes",
@@ -161,14 +161,14 @@
           "label": "2025-26",
           "start_year": 2025,
           "end_year": 2026,
-          "date_min": "2026-04-18",
+          "date_min": "2025-09-06",
           "date_max": "2026-06-06",
-          "match_count": 40,
-          "appearance_count": 1840,
+          "match_count": 182,
+          "appearance_count": 8372,
           "samurai_match_stat_count": 8314,
           "player_action_stat_count": 8314,
           "team_count": 14,
-          "player_count": 529,
+          "player_count": 667,
           "paths": {
             "metadata": "data/top-14/2025-26/metadata.json",
             "matches": "data/top-14/2025-26/matches.json",

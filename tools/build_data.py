@@ -16,6 +16,8 @@ import csv
 import json
 import re
 import shutil
+import tempfile
+import zipfile
 import unicodedata
 import xml.etree.ElementTree as ET
 from collections import defaultdict
@@ -232,6 +234,44 @@ def raw_xml_files(input_dir: Path) -> list[Path]:
         for path in input_dir.rglob("*")
         if path.is_file() and path.suffix.lower() == ".xml" and is_real_raw_file(path)
     )
+
+
+
+def raw_zip_files(input_dir: Path) -> list[Path]:
+    """Return zip archives under data/raw.
+
+    This makes the workflow resilient when a whole competition is uploaded as a
+    zip file under data/raw. The archive is expanded into a temporary directory
+    for the build only; extracted files are not committed back to the repository.
+    """
+    return sorted(
+        path
+        for path in input_dir.rglob("*")
+        if path.is_file() and path.suffix.lower() == ".zip" and is_real_raw_file(path)
+    )
+
+
+def prepare_input_dir(input_dir: Path, verbose: bool = False) -> tuple[Path, tempfile.TemporaryDirectory | None]:
+    zip_files = raw_zip_files(input_dir)
+    if not zip_files:
+        return input_dir, None
+
+    tmp = tempfile.TemporaryDirectory()
+    expanded = Path(tmp.name) / "raw"
+    shutil.copytree(input_dir, expanded, dirs_exist_ok=True)
+
+    for zip_path in raw_zip_files(expanded):
+        target = zip_path.parent / zip_path.stem
+        target.mkdir(parents=True, exist_ok=True)
+        try:
+            with zipfile.ZipFile(zip_path) as archive:
+                archive.extractall(target)
+        except zipfile.BadZipFile:
+            if verbose:
+                print(f"WARNING: skipped invalid zip file: {zip_path}")
+    if verbose:
+        print(f"Expanded {len(zip_files)} zip file(s) from raw input.")
+    return expanded, tmp
 
 
 def looks_like_bi_csv(fieldnames: list[str] | None) -> bool:
@@ -591,7 +631,13 @@ def parse_samurai_csv_files(input_dir: Path, season_payloads, match_lookup, appe
         season_key = (stat["competition_id"], stat["season_id"])
         season_payloads[season_key]["samurai_match_stats"].append(stat)
 
-def build(input_dir: Path, output_dir: Path):
+def build(input_dir: Path, output_dir: Path, verbose: bool = False):
+    prepared_input_dir, temp_dir = prepare_input_dir(input_dir, verbose=verbose)
+    input_dir = prepared_input_dir
+    if verbose:
+        print(f"Scanning raw input: {input_dir}")
+        print(f"CSV files found: {len(raw_csv_files(input_dir))}")
+        print(f"XML files found: {len(raw_xml_files(input_dir))}")
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -611,6 +657,13 @@ def build(input_dir: Path, output_dir: Path):
     # competitionName; XML FixData/Data FxTID is used as a fallback when CSV is
     # not present yet.
     competition_by_source_id, match_competition_lookup = scan_competitions_from_bi_csv(input_dir)
+    if verbose:
+        print("Detected competitions before XML parsing:")
+        if competition_by_source_id:
+            for comp in competition_by_source_id.values():
+                print(f"- {comp['name']} ({comp['competition_id']}) source={comp.get('source_competition_id')}")
+        else:
+            print("- none from CSV; XML FxTID fallback will be used")
 
     match_lookup, appearance_lookup = parse_xml_files(
         input_dir,
@@ -712,13 +765,22 @@ def build(input_dir: Path, output_dir: Path):
         competition["seasons"] = sorted(competition["seasons"], key=lambda s: s["season_id"])
 
     (output_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    if verbose:
+        print("Built manifest competitions:")
+        for comp in manifest["competitions"]:
+            seasons_text = ", ".join(s["season_id"] for s in comp.get("seasons", [])) or "no seasons"
+            print(f"- {comp['name']} ({comp['competition_id']}): {seasons_text}")
+        print("Public JSON build complete.")
+    if temp_dir is not None:
+        temp_dir.cleanup()
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", default="data/raw", type=Path)
     parser.add_argument("--output", default="docs/data", type=Path)
+    parser.add_argument("--verbose", action="store_true", help="Print raw file and competition detection details")
     args = parser.parse_args()
-    build(args.input, args.output)
+    build(args.input, args.output, verbose=args.verbose)
 
 
 if __name__ == "__main__":

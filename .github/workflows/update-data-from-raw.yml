@@ -4,14 +4,18 @@ on:
   push:
     branches: [main]
     paths:
-      - 'data/raw/**/*.csv'
-      - 'data/raw/**/*.CSV'
-      - 'data/raw/**/*.xml'
-      - 'data/raw/**/*.XML'
+      - 'data/raw/**'
+      - 'tools/build_data.py'
+      - 'tools/validate_public_data.py'
+      - '.github/workflows/update-data-from-raw.yml'
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: update-public-data-from-raw
+  cancel-in-progress: false
 
 jobs:
   update-data:
@@ -27,8 +31,13 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Show raw files
+        run: |
+          echo "Raw files committed to this branch:"
+          find data/raw -type f \( -iname '*.csv' -o -iname '*.xml' -o -iname '*.zip' \) | sort || true
+
       - name: Rebuild public JSON
-        run: python3 tools/build_data.py --input data/raw --output docs/data
+        run: python3 tools/build_data.py --input data/raw --output docs/data --verbose
 
       - name: Test Samurai rules
         run: python3 tools/test_samurai_rules.py

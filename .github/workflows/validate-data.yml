@@ -4,8 +4,12 @@ on:
   pull_request:
   push:
     branches: [main]
-    paths-ignore:
-      - 'data/raw/**'
+    paths:
+      - 'docs/data/**'
+      - 'docs/assets/**'
+      - 'docs/index.html'
+      - 'tools/**'
+      - '.github/workflows/validate-data.yml'
 
 jobs:
   validate:

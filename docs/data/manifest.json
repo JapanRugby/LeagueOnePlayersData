@@ -1,6 +1,13 @@
 {
-  "generated_at": "2026-06-11T09:18:31.147232+00:00",
-  "schema_version": "1.0.0",
+  "generated_at": "2026-06-11T10:10:49.688818+00:00",
+  "schema_version": "1.1.0",
+  "metric_definitions": {
+    "samurai_stats": "(positive_actions - negative_actions) / ball_in_play_minutes",
+    "important_notes": [
+      "One event row may count more than once if it satisfies multiple Positive/Negative rules.",
+      "Samurai Stats is already a Ball-in-Play Minutes rate, so Total / Per Game / Per80 display modes must not change the Samurai Stats value."
+    ]
+  },
   "competitions": [
     {
       "competition_id": "japan-league-one-d1",
@@ -18,12 +25,14 @@
           "date_max": "2025-06-01",
           "match_count": 114,
           "appearance_count": 5244,
+          "samurai_match_stat_count": 5164,
           "team_count": 12,
           "player_count": 519,
           "paths": {
             "metadata": "data/japan-league-one-d1/2024-25/metadata.json",
             "matches": "data/japan-league-one-d1/2024-25/matches.json",
             "appearances": "data/japan-league-one-d1/2024-25/appearances.json",
+            "samurai_match_stats": "data/japan-league-one-d1/2024-25/samurai_match_stats.json",
             "teams": "data/japan-league-one-d1/2024-25/teams.json",
             "players": "data/japan-league-one-d1/2024-25/players.json"
           }
@@ -38,12 +47,14 @@
           "date_max": "2026-06-07",
           "match_count": 114,
           "appearance_count": 5244,
+          "samurai_match_stat_count": 5165,
           "team_count": 12,
           "player_count": 494,
           "paths": {
             "metadata": "data/japan-league-one-d1/2025-26/metadata.json",
             "matches": "data/japan-league-one-d1/2025-26/matches.json",
             "appearances": "data/japan-league-one-d1/2025-26/appearances.json",
+            "samurai_match_stats": "data/japan-league-one-d1/2025-26/samurai_match_stats.json",
             "teams": "data/japan-league-one-d1/2025-26/teams.json",
             "players": "data/japan-league-one-d1/2025-26/players.json"
           }

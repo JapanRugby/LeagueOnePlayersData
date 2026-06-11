@@ -54,6 +54,7 @@ const matchById = new Map();
 const teamById = new Map();
 const playerById = new Map();
 const appearanceByKey = new Map();
+let availableRows = [];
 let candidateRows = [];
 
 const comparisonColumns = [
@@ -333,8 +334,13 @@ function refreshCandidates() {
   const allRows = aggregatePlayers(filteredActionStats());
   const minMinutes = Number(state.filters.minMinutes || 0);
   const query = normalize(state.filters.playerSearch);
-  candidateRows = allRows.filter((row) => {
-    if (row.playing_minutes <= minMinutes) return false;
+
+  // Keep the selected-player lookup independent from the current search text.
+  // Previously selectedRows() used candidateRows, so typing a new search term
+  // made already-selected players disappear from the comparison table.
+  availableRows = allRows.filter((row) => row.playing_minutes > minMinutes);
+
+  candidateRows = availableRows.filter((row) => {
     if (query && !normalize(`${row.player_name} ${row.team_name}`).includes(query)) return false;
     return true;
   });
@@ -347,7 +353,7 @@ function refreshCandidates() {
 }
 
 function selectedRows() {
-  const rowById = new Map(candidateRows.map((row) => [row.player_id, row]));
+  const rowById = new Map(availableRows.map((row) => [row.player_id, row]));
   return state.filters.players.map((id) => rowById.get(id)).filter(Boolean);
 }
 
@@ -356,7 +362,7 @@ function renderSelectedChips() {
     els.selectedPlayers.innerHTML = '<p class="empty-state">比較したい選手を追加してください。</p>';
     return;
   }
-  const rowById = new Map(candidateRows.map((row) => [row.player_id, row]));
+  const rowById = new Map(availableRows.map((row) => [row.player_id, row]));
   els.selectedPlayers.innerHTML = state.filters.players.map((id) => {
     const row = rowById.get(id);
     const label = row ? `${row.player_name} / ${row.team_name}` : `${id} / 現在の条件外`;

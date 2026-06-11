@@ -5,7 +5,9 @@ on:
     branches: [main]
     paths:
       - 'data/raw/**/*.csv'
+      - 'data/raw/**/*.CSV'
       - 'data/raw/**/*.xml'
+      - 'data/raw/**/*.XML'
   workflow_dispatch:
 
 permissions:

@@ -112,7 +112,11 @@ function setSelectOptions(select, options, value) {
 }
 
 function selectedCompetition() {
-  return state.manifest.competitions.find((c) => c.competition_id === state.filters.competition) || state.manifest.competitions[0];
+  const found = state.manifest.competitions.find((c) => c.competition_id === state.filters.competition);
+  if (found) return found;
+  const fallback = state.manifest.competitions[0];
+  if (fallback) state.filters.competition = fallback.competition_id;
+  return fallback;
 }
 
 function selectedSeasonMeta() {
@@ -123,7 +127,13 @@ function selectedSeasonMeta() {
 
 function populateInitialControls() {
   const competitions = state.manifest.competitions;
-  if (!state.filters.competition) state.filters.competition = competitions[0].competition_id;
+  if (!competitions.length) {
+    els.statusText.textContent = 'コンペティションが見つかりません。rawデータを追加して再ビルドしてください。';
+    return;
+  }
+  if (!state.filters.competition || !competitions.some((c) => c.competition_id === state.filters.competition)) {
+    state.filters.competition = competitions[0].competition_id;
+  }
   setSelectOptions(els.competitionSelect, competitions.map((c) => ({ value: c.competition_id, label: c.name })), state.filters.competition);
   populateSeasonSelect();
   state.manifest.positions.forEach((p) => positionNames.set(String(p.position_id), p.ja || p.en));
@@ -135,8 +145,14 @@ function populateInitialControls() {
 
 function populateSeasonSelect() {
   const comp = selectedCompetition();
-  const seasons = [...comp.seasons].sort((a, b) => a.season_id.localeCompare(b.season_id));
-  if (!state.filters.season) state.filters.season = seasons.at(-1).season_id;
+  const seasons = [...(comp?.seasons || [])].sort((a, b) => a.season_id.localeCompare(b.season_id));
+  if (!seasons.length) {
+    setSelectOptions(els.seasonSelect, [], '');
+    state.filters.season = '';
+    return;
+  }
+  const validSeason = state.filters.season === 'all' || seasons.some((s) => s.season_id === state.filters.season);
+  if (!state.filters.season || !validSeason) state.filters.season = seasons.at(-1).season_id;
   const opts = [{ value: 'all', label: '全シーズン' }].concat(seasons.map((s) => ({
     value: s.season_id,
     label: `${s.label} (${s.date_min}〜${s.date_max})`,
@@ -146,6 +162,15 @@ function populateSeasonSelect() {
 
 async function loadSelectedData() {
   const comp = selectedCompetition();
+  if (!comp || !comp.seasons?.length) {
+    state.data.matches = [];
+    state.data.appearances = [];
+    state.data.samurai = [];
+    state.data.teams = [];
+    state.data.players = [];
+    els.statusText.textContent = '読み込めるコンペティションデータがありません。';
+    return;
+  }
   const key = `${comp.competition_id}:${state.filters.season}`;
   if (state.loadedKey === key) return;
   els.statusText.textContent = 'データを読み込んでいます。';

@@ -155,15 +155,17 @@ def scan_competitions_from_bi_csv(input_dir: Path) -> tuple[dict[str, dict[str, 
     competition_by_source_id: dict[str, dict[str, Any]] = {}
     match_competition_lookup: dict[str, dict[str, Any]] = {}
     used_ids: dict[str, str] = {}
-    csv_files = sorted(path for path in input_dir.rglob("*_BI.csv") if is_real_raw_file(path))
+    csv_files = raw_csv_files(input_dir)
 
     for path in csv_files:
         with path.open("r", encoding="utf-8-sig", newline="") as handle:
             reader = csv.DictReader(handle)
+            if not looks_like_bi_csv(reader.fieldnames):
+                continue
             for row in reader:
                 source_id = field(row, "competitionID", "CompetitionID", "competition_id")
                 name = field(row, "competitionName", "CompetitionName", "competition_name")
-                match_id = field(row, "FXID") or path.name.split("_")[0]
+                match_id = field(row, "FXID", "fxid") or csv_match_id_from_path(path)
                 if not source_id and not name:
                     continue
                 key = source_id or slugify(name)
@@ -207,16 +209,62 @@ def is_real_raw_file(path: Path) -> bool:
         return False
     return True
 
-def field(row: dict[str, str], *names: str) -> str:
-    """Return the first matching CSV field.
 
-    The BI files use `actionName` while the public pseudocode uses `ActionName`.
-    This helper allows both without changing the Samurai definition.
+def raw_csv_files(input_dir: Path) -> list[Path]:
+    """Return every real CSV file under data/raw, regardless of filename.
+
+    Earlier builds only loaded files ending in `_BI.csv`. That missed newly-added
+    competitions when the raw files used names like `match.csv`, uppercase `.CSV`,
+    or were placed in competition-specific folders. We now inspect all CSV files
+    and later skip rows/files that do not contain BI-style columns.
+    """
+    return sorted(
+        path
+        for path in input_dir.rglob("*")
+        if path.is_file() and path.suffix.lower() == ".csv" and is_real_raw_file(path)
+    )
+
+
+def raw_xml_files(input_dir: Path) -> list[Path]:
+    """Return every real XML file under data/raw, regardless of filename."""
+    return sorted(
+        path
+        for path in input_dir.rglob("*")
+        if path.is_file() and path.suffix.lower() == ".xml" and is_real_raw_file(path)
+    )
+
+
+def looks_like_bi_csv(fieldnames: list[str] | None) -> bool:
+    if not fieldnames:
+        return False
+    lower = {name.lower() for name in fieldnames}
+    return bool({"fxid", "plid"} <= lower and ("actionname" in lower or "action" in lower))
+
+
+def csv_match_id_from_path(path: Path) -> str:
+    # Common files start with FXID, e.g. 948799_HEATvSHBR_BI.csv. If not, the
+    # per-row FXID will be used instead.
+    first = path.stem.split("_")[0]
+    return first if first.isdigit() else ""
+
+
+def field(row: dict[str, str], *names: str) -> str:
+    """Return the first matching CSV field, case-insensitively.
+
+    The BI files are not fully consistent across exports: for example, some use
+    `actionName`, others may use `ActionName`, and future competitions can arrive
+    with slightly different casing. This keeps competition detection and Samurai
+    rule evaluation resilient without changing the metric definition.
     """
     for name in names:
         value = row.get(name)
         if value is not None:
-            return value.strip()
+            return str(value).strip()
+    lower_lookup = {str(k).lower(): v for k, v in row.items()}
+    for name in names:
+        value = lower_lookup.get(name.lower())
+        if value is not None:
+            return str(value).strip()
     return ""
 
 
@@ -342,9 +390,9 @@ def parse_xml_files(
     match_lookup = {}
     appearance_lookup = {}
 
-    xml_files = sorted(path for path in input_dir.rglob("*_advanced_superscout.xml") if is_real_raw_file(path))
+    xml_files = raw_xml_files(input_dir)
     if not xml_files:
-        raise SystemExit(f"No *_advanced_superscout.xml files found in {input_dir}")
+        raise SystemExit(f"No XML files found in {input_dir}")
 
     for path in xml_files:
         root = ET.parse(path).getroot()
@@ -459,19 +507,21 @@ def parse_xml_files(
     return match_lookup, appearance_lookup
 
 def parse_samurai_csv_files(input_dir: Path, season_payloads, match_lookup, appearance_lookup, competition_by_source_id, match_competition_lookup):
-    csv_files = sorted(path for path in input_dir.rglob("*_BI.csv") if is_real_raw_file(path))
+    csv_files = raw_csv_files(input_dir)
     samurai_groups: dict[tuple[str, str, str], dict[str, Any]] = {}
 
     for path in csv_files:
         with path.open("r", encoding="utf-8-sig", newline="") as handle:
             reader = csv.DictReader(handle)
+            if not looks_like_bi_csv(reader.fieldnames):
+                continue
             for row in reader:
                 positive = count_positive_actions(row)
                 negative = count_negative_actions(row)
                 if positive == 0 and negative == 0:
                     continue
 
-                match_id = field(row, "FXID") or path.name.split("_")[0]
+                match_id = field(row, "FXID", "fxid") or csv_match_id_from_path(path)
                 player_id = field(row, "PLID")
                 team_id = field(row, "team_id", "TeamID")
                 player_name = field(row, "playerName", "PlayerName")

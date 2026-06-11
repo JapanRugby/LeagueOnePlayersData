@@ -317,7 +317,10 @@ def parse_xml_files(input_dir: Path, season_payloads, seasons, teams_global, pla
             shirt_no = safe_int(a.get("ShirtNo"))
             pos_id = safe_int(a.get("PosID"))
             mins = safe_int(a.get("MINS"), 0) or 0
-            bip_mins = safe_int(a.get("BallInPlayMins"), 0) or 0
+            # IMPORTANT: Samurai Stats denominator is the player's own Playing Ball-in-Play minutes.
+            # In the XML this is stored on each TeamData/Player row as BallInPlayMins.
+            # It is not the match total BIP, team BIP, or BI-event duration.
+            playing_bip_mins = safe_int(a.get("BallInPlayMins"), 0) or 0
             given = (a.get("PLFORN") or "").strip()
             family = (a.get("PLSURN") or "").strip()
             display_name = " ".join([part for part in [given, family] if part]).strip() or player_id
@@ -345,7 +348,9 @@ def parse_xml_files(input_dir: Path, season_payloads, seasons, teams_global, pla
                 "minutes": mins,
                 "att_minutes": safe_int(a.get("AttMinutes"), 0) or 0,
                 "def_minutes": safe_int(a.get("DefMinutes"), 0) or 0,
-                "ball_in_play_minutes": bip_mins,
+                "playing_ball_in_play_minutes": playing_bip_mins,
+                # Backward-compatible alias used by older front-end/export code.
+                "ball_in_play_minutes": playing_bip_mins,
                 "started": role == "starter",
                 "reserve_selected": role == "reserve",
                 "bench_appearance": role == "reserve" and mins > 0,
@@ -414,7 +419,10 @@ def parse_samurai_csv_files(input_dir: Path, season_payloads, match_lookup, appe
                         "net_actions": 0,
                         "event_rows_with_score": 0,
                         "minutes": app.get("minutes", 0),
-                        "ball_in_play_minutes": app.get("ball_in_play_minutes", 0),
+                        "playing_ball_in_play_minutes": app.get("playing_ball_in_play_minutes", app.get("ball_in_play_minutes", 0)),
+                        # Backward-compatible alias. This must always equal playing_ball_in_play_minutes.
+                        "ball_in_play_minutes": app.get("playing_ball_in_play_minutes", app.get("ball_in_play_minutes", 0)),
+                        "samurai_stats": 0,
                         "source_file": path.name,
                     }
                 stat = samurai_groups[key]
@@ -424,6 +432,8 @@ def parse_samurai_csv_files(input_dir: Path, season_payloads, match_lookup, appe
                 stat["event_rows_with_score"] += 1
 
     for stat in samurai_groups.values():
+        denominator = stat.get("playing_ball_in_play_minutes", stat.get("ball_in_play_minutes", 0)) or 0
+        stat["samurai_stats"] = stat["net_actions"] / denominator if denominator > 0 else 0
         season_payloads[stat["season_id"]]["samurai_match_stats"].append(stat)
 
 
@@ -450,10 +460,11 @@ def build(input_dir: Path, output_dir: Path):
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "schema_version": "1.1.0",
         "metric_definitions": {
-            "samurai_stats": "(positive_actions - negative_actions) / ball_in_play_minutes",
+            "samurai_stats": "(positive_actions - negative_actions) / playing_ball_in_play_minutes",
             "important_notes": [
                 "One event row may count more than once if it satisfies multiple Positive/Negative rules.",
-                "Samurai Stats is already a Ball-in-Play Minutes rate, so Total / Per Game / Per80 display modes must not change the Samurai Stats value.",
+                "The denominator is the player's own Playing Ball-in-Play minutes from TeamData/Player BallInPlayMins.",
+                "Samurai Stats is already a Playing Ball-in-Play Minutes rate, so Total / Per Game / Per80 display modes must not change the Samurai Stats value.",
             ],
         },
         "competitions": [{

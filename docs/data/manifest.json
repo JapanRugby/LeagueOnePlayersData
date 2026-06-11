@@ -2,10 +2,12 @@
   "generated_at": "2026-06-11T10:10:49.688818+00:00",
   "schema_version": "1.1.0",
   "metric_definitions": {
-    "samurai_stats": "(positive_actions - negative_actions) / ball_in_play_minutes",
+    "samurai_stats": "(positive_actions - negative_actions) / playing_ball_in_play_minutes",
     "important_notes": [
       "One event row may count more than once if it satisfies multiple Positive/Negative rules.",
-      "Samurai Stats is already a Ball-in-Play Minutes rate, so Total / Per Game / Per80 display modes must not change the Samurai Stats value."
+      "Samurai Stats is already a Ball-in-Play Minutes rate, so Total / Per Game / Per80 display modes must not change the Samurai Stats value.",
+      "The denominator is the player-specific Playing Ball-in-Play minutes from TeamData/Player@BallInPlayMins, not match-level or team-level BIP.",
+      "ball_in_play_minutes is a backward-compatible alias for playing_ball_in_play_minutes."
     ]
   },
   "competitions": [

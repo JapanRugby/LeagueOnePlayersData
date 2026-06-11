@@ -282,6 +282,10 @@ function displayActionValue(row, rawValue) {
   return rawValue / divisor;
 }
 
+function playingBipMinutes(record) {
+  return record.playing_ball_in_play_minutes ?? record.ball_in_play_minutes ?? 0;
+}
+
 function aggregateRows() {
   const appearances = currentFilteredAppearances();
   const groups = new Map();
@@ -301,6 +305,7 @@ function aggregateRows() {
         positions: new Map(),
         position_label: '',
         minutes: 0,
+        playing_ball_in_play_minutes: 0,
         ball_in_play_minutes: 0,
         appearances: 0,
         starts: 0,
@@ -319,7 +324,9 @@ function aggregateRows() {
     }
     const row = groups.get(key);
     row.minutes += a.minutes || 0;
-    row.ball_in_play_minutes += a.ball_in_play_minutes || 0;
+    const playingBip = playingBipMinutes(a);
+    row.playing_ball_in_play_minutes += playingBip;
+    row.ball_in_play_minutes += playingBip; // backward-compatible alias for sorting/export
     if (a.played) row.appearances += 1;
     if (a.started) row.starts += 1;
     if (a.reserve_selected) row.reserve_selections += 1;
@@ -343,7 +350,7 @@ function aggregateRows() {
     row.position_label = sortedPositions.length
       ? sortedPositions.slice(0, 2).map(([id]) => positionNames.get(id) || id).join(' / ')
       : '-';
-    row.samurai_stats = row.ball_in_play_minutes > 0 ? row.net_actions / row.ball_in_play_minutes : 0;
+    row.samurai_stats = row.playing_ball_in_play_minutes > 0 ? row.net_actions / row.playing_ball_in_play_minutes : 0;
     row.positive_display = displayActionValue(row, row.positive_actions);
     row.negative_display = displayActionValue(row, row.negative_actions);
     row.net_display = displayActionValue(row, row.net_actions);
@@ -384,7 +391,7 @@ function render() {
 function renderSummary() {
   const baseAppearances = appearancesForDateAndTeam();
   const matchIds = new Set(baseAppearances.map((a) => a.match_id));
-  const totalBip = state.rows.reduce((sum, row) => sum + row.ball_in_play_minutes, 0);
+  const totalBip = state.rows.reduce((sum, row) => sum + row.playing_ball_in_play_minutes, 0);
   const totalPositive = state.rows.reduce((sum, row) => sum + row.positive_actions, 0);
   const totalNegative = state.rows.reduce((sum, row) => sum + row.negative_actions, 0);
   els.periodSummary.textContent = `${state.filters.start || '-'} 〜 ${state.filters.end || '-'}`;
@@ -415,7 +422,7 @@ function renderTable() {
       <td class="numeric">${formatActionDisplay(row.positive_display)}</td>
       <td class="numeric">${formatActionDisplay(row.negative_display)}</td>
       <td class="numeric">${formatActionDisplay(row.net_display)}</td>
-      <td class="numeric">${numberFmt.format(row.ball_in_play_minutes)}</td>
+      <td class="numeric">${numberFmt.format(row.playing_ball_in_play_minutes)}</td>
       <td class="numeric">${numberFmt.format(row.minutes)}</td>
       <td class="numeric">${numberFmt.format(row.appearances)}</td>
       <td class="numeric">${numberFmt.format(row.starts)}</td>
@@ -447,7 +454,7 @@ function renderPlayerPanel(playerKey) {
     `Positive ${numberFmt.format(row.positive_actions)}`,
     `Negative ${numberFmt.format(row.negative_actions)}`,
     `Net ${numberFmt.format(row.net_actions)}`,
-    `BIP ${numberFmt.format(row.ball_in_play_minutes)}分`,
+    `Playing BIP ${numberFmt.format(row.playing_ball_in_play_minutes)}分`,
     `出場時間 ${numberFmt.format(row.minutes)}分`,
     `出場試合 ${numberFmt.format(row.appearances)}`,
   ].map((text) => `<span>${escapeHtml(text)}</span>`).join('');
@@ -459,7 +466,7 @@ function renderPlayerPanel(playerKey) {
     const match = matchById.get(a.match_id);
     const team = teamById.get(a.team_id) || { name: a.team_name };
     const stat = samuraiByAppearanceKey.get(samuraiKey(a.match_id, a.team_id, a.player_id)) || { positive_actions: 0, negative_actions: 0, net_actions: 0 };
-    const bip = a.ball_in_play_minutes || stat.ball_in_play_minutes || 0;
+    const bip = playingBipMinutes(a) || playingBipMinutes(stat);
     const matchSamurai = bip > 0 ? (stat.net_actions || 0) / bip : 0;
     let opponent = '-';
     if (match) {
@@ -528,13 +535,13 @@ function exportCsv() {
   }
   const header = [
     'player_id','player_name','team_id','team_name','position','samurai_stats','positive_actions','negative_actions','net_actions',
-    'positive_display','negative_display','net_display','display_mode','ball_in_play_minutes','minutes','appearances','starts',
+    'positive_display','negative_display','net_display','display_mode','playing_ball_in_play_minutes','minutes','appearances','starts',
     'reserve_selections','bench_appearances','unused_reserve','start_date','end_date'
   ];
   const rows = state.rows.map((r) => [
     r.player_id, r.player_name, r.team_id, r.team_name, r.position_label, r.samurai_stats,
     r.positive_actions, r.negative_actions, r.net_actions, r.positive_display, r.negative_display, r.net_display,
-    state.filters.displayMode, r.ball_in_play_minutes, r.minutes, r.appearances, r.starts,
+    state.filters.displayMode, r.playing_ball_in_play_minutes, r.minutes, r.appearances, r.starts,
     r.reserve_selections, r.bench_appearances, r.unused_reserve, state.filters.start, state.filters.end,
   ]);
   const csv = [header, ...rows].map((row) => row.map((v) => `"${String(v ?? '').replaceAll('"', '""')}"`).join(',')).join('\n');

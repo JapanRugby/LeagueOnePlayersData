@@ -6,13 +6,13 @@ GitHub Pagesでそのまま公開できるように、公開サイト本体は `
 ## Samurai Statsの定義
 
 ```text
-Samurai Stats = (Positive Actions - Negative Actions) / Ball-in-Play Minutes
+Samurai Stats = (Positive Actions - Negative Actions) / Playing Ball-in-Play Minutes
 ```
 
 重要な実装ルール:
 
 - 1イベント行が複数条件に該当する場合、複数カウントします。
-- Samurai Stats は Ball-in-Play Minutes あたりの rate として扱います。
+- Samurai Stats は、その選手の Playing Ball-in-Play Minutes あたりの rate として扱います。
 - `Total / Per Game / Per80` を切り替えても、Samurai Stats のメイン値は変化しません。
 - `Positive / Negative / Net` の件数表示は、`Total / Per Game / Per80` の対象です。
 
@@ -38,7 +38,7 @@ Samurai Stats = (Positive Actions - Negative Actions) / Ball-in-Play Minutes
   - Positive Actions
   - Negative Actions
   - Net Actions
-  - Ball-in-Play Minutes
+  - Playing Ball-in-Play Minutes
   - 出場時間
   - 出場試合数
   - 先発回数
@@ -65,7 +65,11 @@ Samurai Stats = (Positive Actions - Negative Actions) / Ball-in-Play Minutes
 │   ├── build_data.py      # XML/BI CSVから公開用JSONを生成
 │   └── test_samurai_rules.py
 ├── data/
-│   └── raw/               # 元データ置き場。gitignore対象
+│   └── raw/               # 元CSV/XML置き場。GitHub Actionsの自動更新対象
+├── .github/
+│   └── workflows/
+│       ├── update-data-from-raw.yml
+│       └── validate-data.yml
 └── README.md
 ```
 
@@ -92,12 +96,40 @@ python3 -m http.server 8000 --directory docs
 http://localhost:8000
 ```
 
-## データを再生成する方法
+## データ更新方法
 
-元XMLとBI CSVを `data/raw/LO/` に置いてから実行します。
+この版は **A案: raw CSV/XMLもGitHubに置く運用** です。
+
+`data/raw/` 配下にCSV/XMLを追加して `main` ブランチへpushすると、GitHub Actionsが自動で `docs/data/` を再生成し、更新されたJSONを自動コミットします。
 
 ```bash
-python3 tools/build_data.py --input data/raw/LO --output docs/data
+git add data/raw
+git commit -m "Add raw match files"
+git push
+```
+
+GitHub Actionsの流れ:
+
+```text
+data/raw/**/*.csv または data/raw/**/*.xml が main にpushされる
+↓
+python3 tools/build_data.py --input data/raw --output docs/data
+↓
+python3 tools/test_samurai_rules.py
+↓
+python3 tools/validate_public_data.py
+↓
+docs/data に差分があれば自動コミット
+↓
+GitHub Pagesが更新
+```
+
+手元で事前確認する場合は以下を実行します。
+
+```bash
+python3 tools/build_data.py --input data/raw --output docs/data
+python3 tools/test_samurai_rules.py
+python3 tools/validate_public_data.py
 ```
 
 期待する元ファイル名:
@@ -105,6 +137,13 @@ python3 tools/build_data.py --input data/raw/LO --output docs/data
 ```text
 *_advanced_superscout.xml
 *_BI.csv
+```
+
+`tools/build_data.py` は `data/raw` 配下を再帰的に探すため、以下のようなフォルダ分けもできます。
+
+```text
+data/raw/LO/948799_HEATvSHBR_BI.csv
+data/raw/2026-27/round-01/123456_TEAMvTEAM_BI.csv
 ```
 
 ## 公開データ設計
@@ -130,8 +169,8 @@ docs/data/{competition_id}/{season_id}/players.json
 | Positive Actions | JRFU定義のPositive条件に該当した件数。複数条件該当時は複数カウント |
 | Negative Actions | JRFU定義のNegative条件に該当した件数。複数条件該当時は複数カウント |
 | Net Actions | `Positive Actions - Negative Actions` |
-| Ball-in-Play Minutes | XML内の `BallInPlayMins` の合計 |
-| Samurai Stats | `Net Actions / Ball-in-Play Minutes` |
+| Playing Ball-in-Play Minutes | XML内の各選手行 `TeamData/Player@BallInPlayMins` の合計。試合全体・チーム全体のBIP分ではありません。 |
+| Samurai Stats | `Net Actions / Playing Ball-in-Play Minutes` |
 | 出場時間 | `sum(minutes)` |
 | 出場試合数 | `count(played === true)` |
 | 先発回数 | `count(started === true)` |
@@ -151,8 +190,10 @@ python3 tools/test_samurai_rules.py
 
 ## 公開前の注意
 
-元データや派生データを公開してよい権利があるか確認してください。  
-このテンプレートでは、元XML/CSVをリポジトリに含めない前提で `data/raw/` を `.gitignore` に入れています。
+この版では、`data/raw/` の元CSV/XMLもGitHubにコミットできる設定にしています。  
+元データおよび派生データを公開してよい権利があるか、必ず確認してください。
+
+GitHub Actionsによる自動コミットを使うため、リポジトリの **Settings → Actions → General → Workflow permissions** で、必要に応じて **Read and write permissions** を有効にしてください。
 
 ## 今後の拡張案
 

@@ -36,10 +36,32 @@ def main() -> None:
         for season in competition["seasons"]:
             season_id = season["season_id"]
             base = Path("docs/data") / competition_id / season_id
+            loaded = {}
             for name in required_files:
                 path = base / f"{name}.json"
                 assert path.exists(), f"Missing {path}"
-                load_json(path)
+                loaded[name] = load_json(path)
+
+            for appearance in loaded["appearances"]:
+                assert "playing_ball_in_play_minutes" in appearance, (
+                    f"Missing playing_ball_in_play_minutes in appearance {appearance.get('appearance_id')}"
+                )
+                assert appearance.get("ball_in_play_minutes") == appearance.get("playing_ball_in_play_minutes"), (
+                    f"BIP alias mismatch in appearance {appearance.get('appearance_id')}"
+                )
+
+            for stat in loaded["samurai_match_stats"]:
+                assert "playing_ball_in_play_minutes" in stat, (
+                    f"Missing playing_ball_in_play_minutes in samurai stat {stat.get('samurai_match_stat_id')}"
+                )
+                assert stat.get("ball_in_play_minutes") == stat.get("playing_ball_in_play_minutes"), (
+                    f"BIP alias mismatch in samurai stat {stat.get('samurai_match_stat_id')}"
+                )
+                denom = stat.get("playing_ball_in_play_minutes") or 0
+                expected = (stat.get("net_actions", 0) / denom) if denom else 0
+                assert abs((stat.get("samurai_stats") or 0) - expected) < 1e-12, (
+                    f"Samurai Stats denominator mismatch in {stat.get('samurai_match_stat_id')}"
+                )
 
     print("JSON OK")
 

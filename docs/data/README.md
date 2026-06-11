@@ -9,5 +9,11 @@
 - `{competition_id}/{season_id}/teams.json`: チーム情報
 - `{competition_id}/{season_id}/players.json`: 選手情報
 
-`samurai_match_stats.json` はBI CSVのイベント行を1試合×1選手に圧縮したデータです。  
-Raw BI CSVは公開データに含めない前提です。
+`samurai_match_stats.json` はBI CSVのイベント行を1試合×1選手に圧縮したデータです。
+
+A案運用では、元CSV/XMLは `data/raw/` にコミットし、GitHub Actionsでこの `docs/data/` を自動再生成します。
+
+
+## Samurai Stats denominator
+
+`playing_ball_in_play_minutes` is the player-specific Playing Ball-in-Play minutes from `TeamData/Player@BallInPlayMins`. It is intentionally not match-level or team-level Ball-in-Play minutes. `ball_in_play_minutes` is kept as a backward-compatible alias and must equal `playing_ball_in_play_minutes`.

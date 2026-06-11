@@ -12,8 +12,8 @@
     <div>
       <p class="eyebrow">JAPAN RUGBY PERFORMANCE REVIEW HUB</p>
       <h1>Samurai Stats</h1>
-      <p class="lead">選手のアクションをJRFU定義のPositive Actions / Negative Actionsに分類し、Ball-in-Play Minutesあたりのrateとして評価します。</p>
-      <p class="formula"><strong>Samurai Stats</strong> = (Positive Actions − Negative Actions) / Ball-in-Play Minutes</p>
+      <p class="lead">選手のアクションをJRFU定義のPositive Actions / Negative Actionsに分類し、選手ごとのPlaying Ball-in-Play Minutesあたりのrateとして評価します。</p>
+      <p class="formula"><strong>Samurai Stats</strong> = (Positive Actions − Negative Actions) / Playing Ball-in-Play Minutes</p>
     </div>
     <div class="header-actions">
       <button id="copyLinkButton" class="ghost-button" type="button">現在の条件をコピー</button>
@@ -68,14 +68,14 @@
         <button type="button" data-preset="latest-10-matchdays">最新10開催日</button>
         <button type="button" id="resetButton">条件をリセット</button>
       </div>
-      <p class="rule-note">Positive / Negativeは1イベント行が複数条件に該当した場合に複数カウントします。Samurai Stats本体は常にBIP分あたりのrateなので、表示モードを変えても値は変わりません。</p>
+      <p class="rule-note">Positive / Negativeは1イベント行が複数条件に該当した場合に複数カウントします。Samurai Stats本体は常に選手ごとのPlaying BIP分あたりのrateなので、表示モードを変えても値は変わりません。</p>
     </section>
 
     <section class="summary-grid" aria-label="集計概要">
       <article><span>対象期間</span><strong id="periodSummary">-</strong></article>
       <article><span>対象試合</span><strong id="matchSummary">-</strong></article>
       <article><span>対象選手</span><strong id="playerSummary">-</strong></article>
-      <article><span>合計BIP分</span><strong id="bipSummary">-</strong></article>
+      <article><span>合計Playing BIP分</span><strong id="bipSummary">-</strong></article>
       <article><span>Positive</span><strong id="positiveSummary">-</strong></article>
       <article><span>Negative</span><strong id="negativeSummary">-</strong></article>
     </section>
@@ -99,7 +99,7 @@
               <th data-sort="positive_display" class="numeric">Positive</th>
               <th data-sort="negative_display" class="numeric">Negative</th>
               <th data-sort="net_display" class="numeric">Net</th>
-              <th data-sort="ball_in_play_minutes" class="numeric">BIP分</th>
+              <th data-sort="playing_ball_in_play_minutes" class="numeric">Playing BIP分</th>
               <th data-sort="minutes" class="numeric">出場時間</th>
               <th data-sort="appearances" class="numeric">出場試合</th>
               <th data-sort="starts" class="numeric">先発</th>
@@ -132,7 +132,7 @@
               <th class="numeric">背番号</th>
               <th>役割</th>
               <th class="numeric">分</th>
-              <th class="numeric">BIP分</th>
+              <th class="numeric">Playing BIP分</th>
               <th class="numeric">Positive</th>
               <th class="numeric">Negative</th>
               <th class="numeric">Samurai</th>

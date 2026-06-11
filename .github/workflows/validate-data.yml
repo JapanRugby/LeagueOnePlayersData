@@ -1,0 +1,31 @@
+name: Validate data
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Validate public JSON
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path('docs/data/manifest.json').read_text(encoding='utf-8'))
+          assert manifest['competitions'], 'No competitions in manifest'
+          for competition in manifest['competitions']:
+              for season in competition['seasons']:
+                  base = Path('docs/data') / competition['competition_id'] / season['season_id']
+                  for name in ['metadata', 'matches', 'appearances', 'teams', 'players']:
+                      path = base / f'{name}.json'
+                      assert path.exists(), f'Missing {path}'
+                      json.loads(path.read_text(encoding='utf-8'))
+          print('JSON OK')
+          PY

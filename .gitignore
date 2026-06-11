@@ -1,0 +1,17 @@
+# Raw/proprietary data
+data/raw/*
+!data/raw/.gitkeep
+*.zip
+
+# OS files
+.DS_Store
+__MACOSX/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Editor
+.vscode/
+.idea/

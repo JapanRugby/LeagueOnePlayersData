@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>League Player Stats</title>
+  <meta name="description" content="Rugby player appearance, minutes, starts and reserve statistics with date range filters." />
+  <link rel="stylesheet" href="./assets/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div>
+      <p class="eyebrow">Rugby Union Data Browser</p>
+      <h1>League Player Stats</h1>
+      <p class="lead">選手の出場時間、出場試合数、スターター回数、リザーブ登録回数を日付範囲で集計します。</p>
+    </div>
+    <div class="header-actions">
+      <button id="copyLinkButton" class="ghost-button" type="button">現在の条件をコピー</button>
+      <button id="exportCsvButton" class="primary-button" type="button">CSV出力</button>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <section class="filters-card" aria-label="フィルター">
+      <div class="filter-grid">
+        <label>
+          <span>リーグ</span>
+          <select id="competitionSelect"></select>
+        </label>
+        <label>
+          <span>シーズン</span>
+          <select id="seasonSelect"></select>
+        </label>
+        <label>
+          <span>チーム</span>
+          <select id="teamSelect"></select>
+        </label>
+        <label>
+          <span>ポジション</span>
+          <select id="positionSelect"></select>
+        </label>
+        <label class="date-field">
+          <span>開始日</span>
+          <input id="startDateInput" type="date" />
+        </label>
+        <label class="date-field">
+          <span>終了日</span>
+          <input id="endDateInput" type="date" />
+        </label>
+        <label class="search-field">
+          <span>選手名検索</span>
+          <input id="searchInput" type="search" placeholder="例: Mo'unga / Matsuda" autocomplete="off" />
+        </label>
+      </div>
+      <div class="preset-row" aria-label="期間プリセット">
+        <button type="button" data-preset="all">全期間</button>
+        <button type="button" data-preset="latest-30-days">最新30日</button>
+        <button type="button" data-preset="latest-5-matchdays">最新5開催日</button>
+        <button type="button" data-preset="latest-10-matchdays">最新10開催日</button>
+        <button type="button" id="resetButton">条件をリセット</button>
+      </div>
+    </section>
+
+    <section class="summary-grid" aria-label="集計概要">
+      <article><span>対象期間</span><strong id="periodSummary">-</strong></article>
+      <article><span>対象試合</span><strong id="matchSummary">-</strong></article>
+      <article><span>対象選手</span><strong id="playerSummary">-</strong></article>
+      <article><span>合計出場時間</span><strong id="minutesSummary">-</strong></article>
+    </section>
+
+    <section class="table-card">
+      <div class="table-toolbar">
+        <div>
+          <h2>選手ランキング</h2>
+          <p id="statusText">データを読み込んでいます。</p>
+        </div>
+        <div class="small-note">列見出しをクリックすると並び替えできます。</div>
+      </div>
+      <div class="table-wrap">
+        <table id="statsTable">
+          <thead>
+            <tr>
+              <th data-sort="player_name">選手</th>
+              <th data-sort="team_name">チーム</th>
+              <th data-sort="position_label">主な位置</th>
+              <th data-sort="minutes" class="numeric">出場時間</th>
+              <th data-sort="appearances" class="numeric">出場試合</th>
+              <th data-sort="starts" class="numeric">先発</th>
+              <th data-sort="reserve_selections" class="numeric">リザーブ登録</th>
+              <th data-sort="bench_appearances" class="numeric">途中出場</th>
+              <th data-sort="unused_reserve" class="numeric">未出場リザーブ</th>
+            </tr>
+          </thead>
+          <tbody id="statsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <aside id="playerPanel" class="player-panel" hidden>
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">Player Match Log</p>
+          <h2 id="panelTitle">選手詳細</h2>
+          <p id="panelSubtitle"></p>
+        </div>
+        <button id="closePanelButton" class="ghost-button" type="button">閉じる</button>
+      </div>
+      <div id="panelStats" class="mini-stats"></div>
+      <div class="table-wrap compact">
+        <table>
+          <thead>
+            <tr>
+              <th>日付</th>
+              <th>シーズン</th>
+              <th>チーム</th>
+              <th>相手</th>
+              <th class="numeric">背番号</th>
+              <th>役割</th>
+              <th class="numeric">分</th>
+            </tr>
+          </thead>
+          <tbody id="matchLogBody"></tbody>
+        </table>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="site-footer">
+    <p>Data generated from uploaded XML files. Verify source and derived-data publishing rights before making the repository public.</p>
+  </footer>
+
+  <script src="./assets/app.js" defer></script>
+</body>
+</html>

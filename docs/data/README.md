@@ -17,3 +17,12 @@ A案運用では、元CSV/XMLは `data/raw/` にコミットし、GitHub Actions
 ## Samurai Stats denominator
 
 `playing_ball_in_play_minutes` is the player-specific Playing Ball-in-Play minutes from `TeamData/Player@BallInPlayMins`. It is intentionally not match-level or team-level Ball-in-Play minutes. `ball_in_play_minutes` is kept as a backward-compatible alias and must equal `playing_ball_in_play_minutes`.
+
+## Samurai Stats rule source
+
+The Positive and Negative action rules mirror the supplied PowerBI/DAX measures:
+
+- `Actions Positive JRFU`
+- `Actions Negative JRFU`
+
+Each PowerBI `VAR` is represented as an independent rule in `tools/build_data.py`, so one event row may be counted by multiple rules. The active rule version is stored in `manifest.json` at `metric_definitions.rule_version`.

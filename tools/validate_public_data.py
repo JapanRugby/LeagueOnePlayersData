@@ -21,6 +21,12 @@ def main() -> None:
         "Missing metric_definitions.samurai_stats in docs/data/manifest.json. "
         "Regenerate data with: python3 tools/build_data.py --input data/raw --output docs/data"
     )
+    assert metric_definitions.get("rule_version"), (
+        "Missing metric_definitions.rule_version. "
+        "Regenerate data with the PowerBI/DAX Samurai rule implementation."
+    )
+    assert metric_definitions.get("positive_action_rules"), "Missing metric_definitions.positive_action_rules"
+    assert metric_definitions.get("negative_action_rules"), "Missing metric_definitions.negative_action_rules"
 
     required_files = [
         "metadata",

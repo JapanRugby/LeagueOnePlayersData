@@ -308,114 +308,145 @@ def field(row: dict[str, str], *names: str) -> str:
     return ""
 
 
-def count_positive_actions(row: dict[str, str]) -> int:
+
+SAMURAI_RULE_VERSION = "jrfu-powerbi-dax-2026-06-11"
+
+POSITIVE_RULE_NAMES = [
+    "PassPositive",
+    "BallCarryOffload",
+    "Linebreaks",
+    "AttackingQualities",
+    "DefenderBeaten",
+    "KicksInPlay",
+    "PenaltyKick",
+    "KickRetain",
+    "SpecialKick",
+    "GoalKick",
+    "LineoutWon",
+    "BallCarries",
+    "BallCarriesDetail",
+    "TacklesMade",
+    "Restart",
+    "TackleTurnoverWon",
+    "DominantTackle",
+    "DominantCarry",
+    "HandlingSuccess",
+    "OOAAttackEffective",
+    "LineoutOppositionSteal",
+    "OOADefenceEffective",
+]
+
+NEGATIVE_RULE_NAMES = [
+    "OffloadAllowed",
+    "TacklesMissed",
+    "TacklePassive",
+    "PenaltyConcededFull",
+    "PenaltyConcededFreeKick",
+    "PenaltyConcededYellowCard",
+    "PenaltyConcededRedCard",
+    "IneffectiveCarry",
+    "OOAAttackIneffective",
+    "OOADefenceIneffective",
+    "HandlingFail",
+    "OffloadNegative",
+    "ErrorOnDefence",
+    "ErrorOnAttack",
+    "GoalKickMissed",
+]
+
+
+def count_positive_action_breakdown(row: dict[str, str]) -> dict[str, int]:
+    """Return the PowerBI/DAX Positive JRFU VAR counts for one event row.
+
+    This intentionally mirrors the supplied PowerBI measure:
+    `Actions Positive JRFU`. Each VAR is evaluated independently, so a single
+    event row can add to multiple rules. Do not collapse this into if/elif.
+    """
     action_name = field(row, "ActionName", "actionName")
-    action_type = field(row, "ActionTypeName")
-    action_result = field(row, "ActionResultName")
+    action_type = field(row, "ActionTypeName", "actionTypeName")
+    action_result = field(row, "ActionResultName", "actionResultName")
     qualifier3 = field(row, "Qualifier3Name", "qualifier3Name")
     qualifier4 = field(row, "Qualifier4Name", "qualifier4Name")
 
-    count = 0
+    return {
+        "PassPositive": int(action_name == "Pass" and action_type in PASS_POSITIVE_TYPES),
+        "BallCarryOffload": int(action_type == "Offload"),
+        "Linebreaks": int(action_type in BREAK_TYPES),
+        "AttackingQualities": int(action_type in ASSIST_TYPES),
+        "DefenderBeaten": int(action_type == "Defender Beaten"),
+        "KicksInPlay": int(qualifier3 in KICK_QUALIFIER3),
+        "PenaltyKick": int(qualifier3 == "Penalty Kick" and action_result in PENALTY_KICK_TOUCH_RESULTS),
+        "KickRetain": int(action_name == "Kick" and action_result in KICK_POSITIVE_RESULTS),
+        "SpecialKick": int(action_name == "Kick" and qualifier4 == "50/22"),
+        "GoalKick": int(action_name == "Goal Kick" and action_result == "Goal Kicked"),
+        "LineoutWon": int(action_name == "Lineout Throw" and action_result in LINEOUT_THROW_WON_RESULTS),
+        "BallCarries": int(action_name == "Carry"),
+        "BallCarriesDetail": int(action_name == "Carry" and action_result == "Try Scored"),
+        "TacklesMade": int(action_result in GENERAL_POSITIVE_RESULTS),
+        "Restart": int(action_result in RESTART_POSITIVE_RESULTS),
+        "TackleTurnoverWon": int(action_name == "Tackle" and action_result in TACKLE_EXTRA_POSITIVE_RESULTS),
+        "DominantTackle": int(action_name == "Tackle" and qualifier4 == "Dominant Tackle"),
+        "DominantCarry": int(qualifier4 == "Dominant Contact"),
+        "HandlingSuccess": int(action_name == "Collection" and action_result == "Success"),
+        "OOAAttackEffective": int(
+            action_name == "Ruck OOA"
+            and qualifier4 == "Attacking OOA"
+            and action_type in RUCK_ATTACKING_POSITIVE_TYPES
+        ),
+        "LineoutOppositionSteal": int(action_name == "Lineout Take" and action_type in LINEOUT_TAKE_POSITIVE_TYPES),
+        "OOADefenceEffective": int(
+            action_name == "Ruck OOA"
+            and qualifier4 == "Defensive OOA"
+            and action_type in RUCK_DEFENSIVE_POSITIVE_TYPES
+        ),
+    }
 
-    # Important: do not use elif. One event row may satisfy multiple rules.
-    if action_name == "Pass" and action_type in PASS_POSITIVE_TYPES:
-        count += 1
-    if action_type == "Offload":
-        count += 1
-    if action_type in BREAK_TYPES:
-        count += 1
-    if action_type in ASSIST_TYPES:
-        count += 1
-    if action_type == "Defender Beaten":
-        count += 1
 
-    if qualifier3 in KICK_QUALIFIER3:
-        count += 1
-    if qualifier3 == "Penalty Kick" and action_result in PENALTY_KICK_TOUCH_RESULTS:
-        count += 1
-    if action_name == "Kick" and action_result in KICK_POSITIVE_RESULTS:
-        count += 1
-    if action_name == "Kick" and qualifier4 == "50/22":
-        count += 1
-    if action_name == "Goal Kick" and action_result == "Goal Kicked":
-        count += 1
+def count_positive_actions(row: dict[str, str]) -> int:
+    return sum(count_positive_action_breakdown(row).values())
 
-    if action_name == "Lineout Throw" and action_result in LINEOUT_THROW_WON_RESULTS:
-        count += 1
-    if action_name == "Carry":
-        count += 1
-    if action_name == "Carry" and action_result == "Try Scored":
-        count += 1
 
-    if action_result in GENERAL_POSITIVE_RESULTS:
-        count += 1
-    if action_result in RESTART_POSITIVE_RESULTS:
-        count += 1
-    if action_name == "Tackle" and action_result in TACKLE_EXTRA_POSITIVE_RESULTS:
-        count += 1
-    if action_name == "Tackle" and qualifier4 == "Dominant Tackle":
-        count += 1
-    if qualifier4 == "Dominant Contact":
-        count += 1
-    if action_name == "Collection" and action_result == "Success":
-        count += 1
+def count_negative_action_breakdown(row: dict[str, str]) -> dict[str, int]:
+    """Return the PowerBI/DAX Negative JRFU VAR counts for one event row.
 
-    if action_name == "Ruck OOA" and qualifier4 == "Attacking OOA" and action_type in RUCK_ATTACKING_POSITIVE_TYPES:
-        count += 1
-    if action_name == "Lineout Take" and action_type in LINEOUT_TAKE_POSITIVE_TYPES:
-        count += 1
-    if action_name == "Ruck OOA" and qualifier4 == "Defensive OOA" and action_type in RUCK_DEFENSIVE_POSITIVE_TYPES:
-        count += 1
+    This intentionally mirrors the supplied PowerBI measure:
+    `Actions Negative JRFU`. Each VAR is evaluated independently, so a single
+    event row can add to multiple rules. Do not collapse this into if/elif.
+    """
+    action_name = field(row, "ActionName", "actionName")
+    action_type = field(row, "ActionTypeName", "actionTypeName")
+    action_result = field(row, "ActionResultName", "actionResultName")
+    qualifier4 = field(row, "Qualifier4Name", "qualifier4Name")
 
-    return count
+    return {
+        "OffloadAllowed": int(action_result == "Offload Allowed"),
+        "TacklesMissed": int(action_name == "Missed Tackle"),
+        "TacklePassive": int(action_name == "Tackle" and action_result == "Passive"),
+        "PenaltyConcededFull": int(action_name == "Penalty Conceded" and qualifier4 == "Full Penalty"),
+        "PenaltyConcededFreeKick": int(action_name == "Penalty Conceded" and qualifier4 == "Free Kick"),
+        "PenaltyConcededYellowCard": int(action_name == "Penalty Conceded" and action_result == "Yellow Card"),
+        "PenaltyConcededRedCard": int(action_name == "Penalty Conceded" and action_result == "Red Card"),
+        "IneffectiveCarry": int(qualifier4 == "Ineffective Contact"),
+        "OOAAttackIneffective": int(
+            action_name == "Ruck OOA"
+            and qualifier4 == "Attacking OOA"
+            and action_type in RUCK_ATTACKING_NEGATIVE_TYPES
+        ),
+        "OOADefenceIneffective": int(
+            action_name == "Ruck OOA"
+            and qualifier4 == "Defensive OOA"
+            and action_type in RUCK_DEFENSIVE_NEGATIVE_TYPES
+        ),
+        "HandlingFail": int(action_name == "Collection" and action_result == "Fail"),
+        "OffloadNegative": int(action_type == "Offload" and action_result == "To Ground"),
+        "ErrorOnDefence": int(action_result == "Error On Defence"),
+        "ErrorOnAttack": int(action_result == "Error On Attack"),
+        "GoalKickMissed": int(action_name == "Goal Kick" and action_result == "Goal Missed"),
+    }
 
 
 def count_negative_actions(row: dict[str, str]) -> int:
-    action_name = field(row, "ActionName", "actionName")
-    action_type = field(row, "ActionTypeName")
-    action_result = field(row, "ActionResultName")
-    qualifier4 = field(row, "Qualifier4Name", "qualifier4Name")
-
-    count = 0
-
-    # Important: do not use elif. One event row may satisfy multiple rules.
-    if action_result == "Offload Allowed":
-        count += 1
-    if action_name == "Missed Tackle":
-        count += 1
-    if action_name == "Tackle" and action_result == "Passive":
-        count += 1
-
-    if action_name == "Penalty Conceded" and qualifier4 == "Full Penalty":
-        count += 1
-    if action_name == "Penalty Conceded" and qualifier4 == "Free Kick":
-        count += 1
-    if action_name == "Penalty Conceded" and action_result == "Yellow Card":
-        count += 1
-    if action_name == "Penalty Conceded" and action_result == "Red Card":
-        count += 1
-
-    if qualifier4 == "Ineffective Contact":
-        count += 1
-
-    if action_name == "Ruck OOA" and qualifier4 == "Attacking OOA" and action_type in RUCK_ATTACKING_NEGATIVE_TYPES:
-        count += 1
-    if action_name == "Ruck OOA" and qualifier4 == "Defensive OOA" and action_type in RUCK_DEFENSIVE_NEGATIVE_TYPES:
-        count += 1
-
-    if action_name == "Collection" and action_result == "Fail":
-        count += 1
-    if action_type == "Offload" and action_result == "To Ground":
-        count += 1
-
-    if action_result == "Error On Defence":
-        count += 1
-    if action_result == "Error On Attack":
-        count += 1
-    if action_name == "Goal Kick" and action_result == "Goal Missed":
-        count += 1
-
-    return count
+    return sum(count_negative_action_breakdown(row).values())
 
 
 def parse_xml_files(
@@ -685,10 +716,14 @@ def build(input_dir: Path, output_dir: Path, verbose: bool = False):
 
     manifest = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "schema_version": "1.2.0",
+        "schema_version": "1.3.0",
         "metric_definitions": {
             "samurai_stats": "(positive_actions - negative_actions) / playing_ball_in_play_minutes",
+            "rule_version": SAMURAI_RULE_VERSION,
+            "positive_action_rules": POSITIVE_RULE_NAMES,
+            "negative_action_rules": NEGATIVE_RULE_NAMES,
             "important_notes": [
+                "Positive and Negative action rules mirror the supplied PowerBI/DAX measures: Actions Positive JRFU and Actions Negative JRFU.",
                 "Competitions are generated automatically from raw CSV/XML metadata. CSV competitionID/competitionName is preferred; XML FixData/Data FxTID is used as fallback.",
                 "One event row may count more than once if it satisfies multiple Positive/Negative rules.",
                 "The denominator is the player's own Playing Ball-in-Play minutes from TeamData/Player BallInPlayMins.",

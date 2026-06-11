@@ -16,6 +16,27 @@ Samurai Stats = (Positive Actions - Negative Actions) / Playing Ball-in-Play Min
 - `Total / Per Game / Per80` を切り替えても、Samurai Stats のメイン値は変化しません。
 - `Positive / Negative / Net` の件数表示は、`Total / Per Game / Per80` の対象です。
 
+
+### PowerBI式との対応
+
+`tools/build_data.py` の Samurai ルールは、PowerBIの以下2つのMeasureを基準にしています。
+
+```text
+Actions Positive JRFU
+Actions Negative JRFU
+```
+
+実装では、PowerBI内の各 `VAR` をそのまま独立したルールとして扱います。
+そのため、1イベント行が `PassPositive` と `TacklesMade` の両方に該当する場合は2カウントされます。
+
+現在のルールバージョンは以下です。
+
+```text
+jrfu-powerbi-dax-2026-06-11
+```
+
+Positive側のVAR名は `manifest.json` の `metric_definitions.positive_action_rules`、Negative側のVAR名は `metric_definitions.negative_action_rules` に出力されます。
+
 ## できること
 
 - コンペティション・シーズン選択
@@ -27,6 +48,7 @@ Samurai Stats = (Positive Actions - Negative Actions) / Playing Ball-in-Play Min
 - プリセット期間
   - 全期間
   - 最新30日
+  - 最新1開催
   - 最新5開催日
   - 最新10開催日
 - 表示モード切り替え

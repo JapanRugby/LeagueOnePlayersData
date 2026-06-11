@@ -18,7 +18,7 @@ Samurai Stats = (Positive Actions - Negative Actions) / Playing Ball-in-Play Min
 
 ## できること
 
-- リーグ・シーズン選択
+- コンペティション・シーズン選択
 - 全シーズン表示
 - チーム絞り込み
 - ポジション絞り込み
@@ -58,9 +58,8 @@ Samurai Stats = (Positive Actions - Negative Actions) / Playing Ball-in-Play Min
 │   │   └── styles.css
 │   └── data/
 │       ├── manifest.json
-│       └── japan-league-one-d1/
-│           ├── 2024-25/
-│           └── 2025-26/
+│       └── {competition_id}/
+│           └── {season_id}/
 ├── tools/
 │   ├── build_data.py      # XML/BI CSVから公開用JSONを生成
 │   └── test_samurai_rules.py
@@ -146,6 +145,20 @@ data/raw/LO/948799_HEATvSHBR_BI.csv
 data/raw/2026-27/round-01/123456_TEAMvTEAM_BI.csv
 ```
 
+### コンペティションの自動生成
+
+コンペティション一覧は手動設定ファイルではなく、rawのCSV/XMLからビルド時に自動生成します。
+
+優先順位:
+
+1. BI CSVの `competitionID` / `competitionName`
+2. advanced_superscout XMLの `FixData/Data@FxTID`
+
+CSVに `competitionName` がある場合は、その名称から `competition_id` を自動生成します。例: `Japan Rugby League One D1` → `japan-rugby-league-one-d1`。
+XMLだけが存在する場合は、名称が分からないため `Competition {FxTID}` という表示名になります。
+
+新しいコンペティションのCSV/XMLを `data/raw/` に追加してpushすると、GitHub Actionsが `docs/data/manifest.json` の `competitions` 配列を更新します。サイト側はこのmanifestを読んでセレクトボックスを作るため、フロントエンドの修正なしで新しいコンペティションを選択できます。
+
 ## 公開データ設計
 
 公開サイトは、以下のJSONを読み込みます。
@@ -178,7 +191,7 @@ docs/data/{competition_id}/{season_id}/players.json
 | 途中出場回数 | `count(bench_appearance === true)` |
 | 未出場リザーブ回数 | `count(reserve_selected === true && played === false)` |
 
-背番号 `1〜15` を先発、`16以上` をリザーブ登録として扱っています。リーグや大会によってルールが異なる場合は `tools/build_data.py` の `role_from_shirt()` を調整してください。
+背番号 `1〜15` を先発、`16以上` をリザーブ登録として扱っています。コンペティションによってルールが異なる場合は `tools/build_data.py` の `role_from_shirt()` を調整してください。
 
 ## Samuraiルールのテスト
 
@@ -197,7 +210,7 @@ GitHub Actionsによる自動コミットを使うため、リポジトリの **
 
 ## 今後の拡張案
 
-- 他リーグ追加
+- 他コンペティション追加
 - 大会設定ファイル化
 - チーム名・選手名の別名管理
 - Positive / Negative条件の設定ファイル化

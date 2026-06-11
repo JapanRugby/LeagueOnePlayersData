@@ -2,7 +2,7 @@
 
 このフォルダはGitHub Pagesで配信される公開データです。
 
-- `manifest.json`: リーグ・シーズン一覧、スキーマバージョン、指標定義
+- `manifest.json`: コンペティション・シーズン一覧、スキーマバージョン、指標定義
 - `{competition_id}/{season_id}/matches.json`: 試合情報
 - `{competition_id}/{season_id}/appearances.json`: 1試合×1選手の出場情報
 - `{competition_id}/{season_id}/samurai_match_stats.json`: 1試合×1選手のSamurai Stats用集計
@@ -11,7 +11,7 @@
 
 `samurai_match_stats.json` はBI CSVのイベント行を1試合×1選手に圧縮したデータです。
 
-A案運用では、元CSV/XMLは `data/raw/` にコミットし、GitHub Actionsでこの `docs/data/` を自動再生成します。
+A案運用では、元CSV/XMLは `data/raw/` にコミットし、GitHub Actionsでこの `docs/data/` を自動再生成します。コンペティション一覧はraw CSV/XMLから自動生成され、フロントエンドは `manifest.json` の `competitions` 配列から選択肢を表示します。
 
 
 ## Samurai Stats denominator

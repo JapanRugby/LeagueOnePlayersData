@@ -1,18 +1,42 @@
 {
-  "2024-25": {
-    "matches": 114,
-    "appearances": 5244,
-    "teams": 12,
-    "players": 519,
-    "date_min": "2024-12-21",
-    "date_max": "2025-06-01"
+  "project": "Samurai Stats | JAPAN RUGBY PERFORMANCE REVIEW HUB",
+  "generated_at": "2026-06-11T10:10:49.688818+00:00",
+  "schema_version": "1.1.0",
+  "metric_definitions": {
+    "samurai_stats": "(positive_actions - negative_actions) / ball_in_play_minutes",
+    "important_notes": [
+      "One event row may count more than once if it satisfies multiple Positive/Negative rules.",
+      "Samurai Stats is already a Ball-in-Play Minutes rate, so Total / Per Game / Per80 display modes must not change the Samurai Stats value."
+    ]
   },
-  "2025-26": {
-    "matches": 114,
-    "appearances": 5244,
-    "teams": 12,
-    "players": 494,
-    "date_min": "2025-12-13",
-    "date_max": "2026-06-07"
-  }
+  "competitions": [
+    {
+      "competition_id": "japan-league-one-d1",
+      "name": "Japan Rugby League One D1",
+      "country": "Japan",
+      "sport": "rugby_union",
+      "seasons": [
+        {
+          "season_id": "2024-25",
+          "date_min": "2024-12-21",
+          "date_max": "2025-06-01",
+          "match_count": 114,
+          "appearance_count": 5244,
+          "samurai_match_stat_count": 5164,
+          "team_count": 12,
+          "player_count": 519
+        },
+        {
+          "season_id": "2025-26",
+          "date_min": "2025-12-13",
+          "date_max": "2026-06-07",
+          "match_count": 114,
+          "appearance_count": 5244,
+          "samurai_match_stat_count": 5165,
+          "team_count": 12,
+          "player_count": 494
+        }
+      ]
+    }
+  ]
 }

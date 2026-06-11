@@ -1,0 +1,142 @@
+{
+  "generated_at": "2026-06-11T10:10:49.688818+00:00",
+  "schema_version": "1.1.0",
+  "metric_definitions": {
+    "samurai_stats": "(positive_actions - negative_actions) / ball_in_play_minutes",
+    "important_notes": [
+      "One event row may count more than once if it satisfies multiple Positive/Negative rules.",
+      "Samurai Stats is already a Ball-in-Play Minutes rate, so Total / Per Game / Per80 display modes must not change the Samurai Stats value."
+    ]
+  },
+  "competitions": [
+    {
+      "competition_id": "japan-league-one-d1",
+      "name": "Japan Rugby League One D1",
+      "country": "Japan",
+      "sport": "rugby_union",
+      "seasons": [
+        {
+          "season_id": "2024-25",
+          "competition_id": "japan-league-one-d1",
+          "label": "2024-25",
+          "start_year": 2024,
+          "end_year": 2025,
+          "date_min": "2024-12-21",
+          "date_max": "2025-06-01",
+          "match_count": 114,
+          "appearance_count": 5244,
+          "samurai_match_stat_count": 5164,
+          "team_count": 12,
+          "player_count": 519,
+          "paths": {
+            "metadata": "data/japan-league-one-d1/2024-25/metadata.json",
+            "matches": "data/japan-league-one-d1/2024-25/matches.json",
+            "appearances": "data/japan-league-one-d1/2024-25/appearances.json",
+            "samurai_match_stats": "data/japan-league-one-d1/2024-25/samurai_match_stats.json",
+            "teams": "data/japan-league-one-d1/2024-25/teams.json",
+            "players": "data/japan-league-one-d1/2024-25/players.json"
+          }
+        },
+        {
+          "season_id": "2025-26",
+          "competition_id": "japan-league-one-d1",
+          "label": "2025-26",
+          "start_year": 2025,
+          "end_year": 2026,
+          "date_min": "2025-12-13",
+          "date_max": "2026-06-07",
+          "match_count": 114,
+          "appearance_count": 5244,
+          "samurai_match_stat_count": 5165,
+          "team_count": 12,
+          "player_count": 494,
+          "paths": {
+            "metadata": "data/japan-league-one-d1/2025-26/metadata.json",
+            "matches": "data/japan-league-one-d1/2025-26/matches.json",
+            "appearances": "data/japan-league-one-d1/2025-26/appearances.json",
+            "samurai_match_stats": "data/japan-league-one-d1/2025-26/samurai_match_stats.json",
+            "teams": "data/japan-league-one-d1/2025-26/teams.json",
+            "players": "data/japan-league-one-d1/2025-26/players.json"
+          }
+        }
+      ]
+    }
+  ],
+  "positions": [
+    {
+      "position_id": 1,
+      "ja": "左PR",
+      "en": "Loosehead Prop"
+    },
+    {
+      "position_id": 2,
+      "ja": "HO",
+      "en": "Hooker"
+    },
+    {
+      "position_id": 3,
+      "ja": "右PR",
+      "en": "Tighthead Prop"
+    },
+    {
+      "position_id": 4,
+      "ja": "LO",
+      "en": "Lock"
+    },
+    {
+      "position_id": 5,
+      "ja": "LO",
+      "en": "Lock"
+    },
+    {
+      "position_id": 6,
+      "ja": "FL",
+      "en": "Blindside Flanker"
+    },
+    {
+      "position_id": 7,
+      "ja": "FL",
+      "en": "Openside Flanker"
+    },
+    {
+      "position_id": 8,
+      "ja": "NO8",
+      "en": "Number 8"
+    },
+    {
+      "position_id": 9,
+      "ja": "SH",
+      "en": "Scrum-half"
+    },
+    {
+      "position_id": 10,
+      "ja": "SO",
+      "en": "Fly-half"
+    },
+    {
+      "position_id": 11,
+      "ja": "WTB",
+      "en": "Wing"
+    },
+    {
+      "position_id": 12,
+      "ja": "CTB",
+      "en": "Inside Centre"
+    },
+    {
+      "position_id": 13,
+      "ja": "CTB",
+      "en": "Outside Centre"
+    },
+    {
+      "position_id": 14,
+      "ja": "WTB",
+      "en": "Wing"
+    },
+    {
+      "position_id": 15,
+      "ja": "FB",
+      "en": "Fullback"
+    }
+  ]
+}

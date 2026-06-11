@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Samurai Stats | JAPAN RUGBY PERFORMANCE REVIEW HUB</title>
+  <meta name="description" content="JRFU定義のPositive Actions / Negative ActionsからSamurai Statsを集計する静的Webサイトです。" />
+  <link rel="stylesheet" href="./assets/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div>
+      <p class="eyebrow">JAPAN RUGBY PERFORMANCE REVIEW HUB</p>
+      <h1>Samurai Stats</h1>
+      <p class="lead">選手のアクションをJRFU定義のPositive Actions / Negative Actionsに分類し、Ball-in-Play Minutesあたりのrateとして評価します。</p>
+      <p class="formula"><strong>Samurai Stats</strong> = (Positive Actions − Negative Actions) / Ball-in-Play Minutes</p>
+    </div>
+    <div class="header-actions">
+      <button id="copyLinkButton" class="ghost-button" type="button">現在の条件をコピー</button>
+      <button id="exportCsvButton" class="primary-button" type="button">CSV出力</button>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <section class="filters-card" aria-label="フィルター">
+      <div class="filter-grid">
+        <label>
+          <span>リーグ</span>
+          <select id="competitionSelect"></select>
+        </label>
+        <label>
+          <span>シーズン</span>
+          <select id="seasonSelect"></select>
+        </label>
+        <label>
+          <span>チーム</span>
+          <select id="teamSelect"></select>
+        </label>
+        <label>
+          <span>ポジション</span>
+          <select id="positionSelect"></select>
+        </label>
+        <label>
+          <span>表示モード</span>
+          <select id="displayModeSelect">
+            <option value="total">Total</option>
+            <option value="per-game">Per Game</option>
+            <option value="per80">Per80</option>
+          </select>
+        </label>
+        <label class="date-field">
+          <span>開始日</span>
+          <input id="startDateInput" type="date" />
+        </label>
+        <label class="date-field">
+          <span>終了日</span>
+          <input id="endDateInput" type="date" />
+        </label>
+        <label class="search-field">
+          <span>選手名検索</span>
+          <input id="searchInput" type="search" placeholder="例: Mo'unga / Matsuda" autocomplete="off" />
+        </label>
+      </div>
+      <div class="preset-row" aria-label="期間プリセット">
+        <button type="button" data-preset="all">全期間</button>
+        <button type="button" data-preset="latest-30-days">最新30日</button>
+        <button type="button" data-preset="latest-5-matchdays">最新5開催日</button>
+        <button type="button" data-preset="latest-10-matchdays">最新10開催日</button>
+        <button type="button" id="resetButton">条件をリセット</button>
+      </div>
+      <p class="rule-note">Positive / Negativeは1イベント行が複数条件に該当した場合に複数カウントします。Samurai Stats本体は常にBIP分あたりのrateなので、表示モードを変えても値は変わりません。</p>
+    </section>
+
+    <section class="summary-grid" aria-label="集計概要">
+      <article><span>対象期間</span><strong id="periodSummary">-</strong></article>
+      <article><span>対象試合</span><strong id="matchSummary">-</strong></article>
+      <article><span>対象選手</span><strong id="playerSummary">-</strong></article>
+      <article><span>合計BIP分</span><strong id="bipSummary">-</strong></article>
+      <article><span>Positive</span><strong id="positiveSummary">-</strong></article>
+      <article><span>Negative</span><strong id="negativeSummary">-</strong></article>
+    </section>
+
+    <section class="table-card">
+      <div class="table-toolbar">
+        <div>
+          <h2>Samurai Stats Ranking</h2>
+          <p id="statusText">データを読み込んでいます。</p>
+        </div>
+        <div class="small-note">列見出しをクリックすると並び替えできます。</div>
+      </div>
+      <div class="table-wrap">
+        <table id="statsTable">
+          <thead>
+            <tr>
+              <th data-sort="player_name">選手</th>
+              <th data-sort="team_name">チーム</th>
+              <th data-sort="position_label">主な位置</th>
+              <th data-sort="samurai_stats" class="numeric primary-metric">Samurai Stats</th>
+              <th data-sort="positive_display" class="numeric">Positive</th>
+              <th data-sort="negative_display" class="numeric">Negative</th>
+              <th data-sort="net_display" class="numeric">Net</th>
+              <th data-sort="ball_in_play_minutes" class="numeric">BIP分</th>
+              <th data-sort="minutes" class="numeric">出場時間</th>
+              <th data-sort="appearances" class="numeric">出場試合</th>
+              <th data-sort="starts" class="numeric">先発</th>
+              <th data-sort="reserve_selections" class="numeric">リザーブ登録</th>
+            </tr>
+          </thead>
+          <tbody id="statsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <aside id="playerPanel" class="player-panel" hidden>
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">Player Match Log</p>
+          <h2 id="panelTitle">選手詳細</h2>
+          <p id="panelSubtitle"></p>
+        </div>
+        <button id="closePanelButton" class="ghost-button" type="button">閉じる</button>
+      </div>
+      <div id="panelStats" class="mini-stats"></div>
+      <div class="table-wrap compact">
+        <table>
+          <thead>
+            <tr>
+              <th>日付</th>
+              <th>シーズン</th>
+              <th>チーム</th>
+              <th>相手</th>
+              <th class="numeric">背番号</th>
+              <th>役割</th>
+              <th class="numeric">分</th>
+              <th class="numeric">BIP分</th>
+              <th class="numeric">Positive</th>
+              <th class="numeric">Negative</th>
+              <th class="numeric">Samurai</th>
+            </tr>
+          </thead>
+          <tbody id="matchLogBody"></tbody>
+        </table>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="site-footer">
+    <p>Raw XML/CSV files are not included. Verify source and derived-data publishing rights before making the repository public.</p>
+  </footer>
+
+  <script src="./assets/app.js" defer></script>
+</body>
+</html>

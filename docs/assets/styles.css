@@ -24,6 +24,40 @@ button, input, select { font: inherit; }
 button { cursor: pointer; }
 .site-header,
 .page-shell,
+.minutes-filter-field { grid-column: span 2; }
+.minutes-filter-field span { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.minutes-filter-field strong { color: var(--accent-dark); font-weight: 900; white-space: nowrap; }
+.filter-grid input[type="range"] {
+  min-height: 44px;
+  padding-inline: 0;
+  accent-color: var(--accent);
+}
+.breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0 0 16px;
+}
+.breakdown-card {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: #fbfdff;
+  padding: 14px;
+}
+.breakdown-card h3 { margin: 0; font-size: 1rem; }
+.breakdown-card p { margin: 4px 0 10px; color: var(--muted); font-size: 0.82rem; }
+.micro table { min-width: 0; }
+.micro th, .micro td { padding: 9px 10px; }
+@media (max-width: 980px) {
+  .minutes-filter-field { grid-column: span 2; }
+}
+@media (max-width: 720px) {
+  .breakdown-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 620px) {
+  .minutes-filter-field { grid-column: span 1; }
+}
+
 .site-footer {
   width: min(1280px, calc(100% - 32px));
   margin-inline: auto;

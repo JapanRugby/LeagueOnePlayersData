@@ -52,10 +52,15 @@
           <span>選手名検索</span>
           <input id="searchInput" type="search" placeholder="例: Mo'unga / Matsuda" autocomplete="off" />
         </label>
+        <label class="minutes-filter-field">
+          <span>出場時間フィルター <strong id="minMinutesValue">0分超</strong></span>
+          <input id="minMinutesSlider" type="range" min="0" max="0" step="1" value="0" />
+        </label>
       </div>
       <div class="preset-row" aria-label="期間プリセット">
         <button type="button" data-preset="all">全期間</button>
         <button type="button" data-preset="latest-30-days">最新30日</button>
+        <button type="button" data-preset="latest-1-matchday">最新1開催</button>
         <button type="button" data-preset="latest-5-matchdays">最新5開催日</button>
         <button type="button" data-preset="latest-10-matchdays">最新10開催日</button>
         <button type="button" id="resetButton">条件をリセット</button>
@@ -114,6 +119,39 @@
             <p>試合ごとのSamurai Stats推移</p>
           </div>
           <div id="samuraiChart" class="samurai-chart"></div>
+        </section>
+        <section class="breakdown-grid" aria-label="背番号別・Position ID別の出場数">
+          <article class="breakdown-card">
+            <h3>背番号別 出場試合数</h3>
+            <p>出場時間がある試合のみ集計</p>
+            <div class="table-wrap micro">
+              <table>
+                <thead>
+                  <tr>
+                    <th>背番号</th>
+                    <th class="numeric">出場数</th>
+                  </tr>
+                </thead>
+                <tbody id="shirtBreakdownBody"></tbody>
+              </table>
+            </div>
+          </article>
+          <article class="breakdown-card">
+            <h3>Position ID別 出場試合数</h3>
+            <p>出場時間がある試合のみ集計</p>
+            <div class="table-wrap micro">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Position ID</th>
+                    <th>ポジション</th>
+                    <th class="numeric">出場数</th>
+                  </tr>
+                </thead>
+                <tbody id="positionBreakdownBody"></tbody>
+              </table>
+            </div>
+          </article>
         </section>
         <div class="table-wrap compact">
           <table>

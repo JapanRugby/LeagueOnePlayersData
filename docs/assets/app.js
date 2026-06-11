@@ -10,6 +10,7 @@ const state = {
     q: '',
     start: '',
     end: '',
+    minMinutes: 0,
   },
   sort: { key: 'samurai_stats', dir: 'desc' },
   rows: [],
@@ -24,6 +25,8 @@ const els = {
   startDateInput: document.querySelector('#startDateInput'),
   endDateInput: document.querySelector('#endDateInput'),
   searchInput: document.querySelector('#searchInput'),
+  minMinutesSlider: document.querySelector('#minMinutesSlider'),
+  minMinutesValue: document.querySelector('#minMinutesValue'),
   resetButton: document.querySelector('#resetButton'),
   statsBody: document.querySelector('#statsBody'),
   statusText: document.querySelector('#statusText'),
@@ -37,6 +40,8 @@ const els = {
   panelSubtitle: document.querySelector('#panelSubtitle'),
   panelStats: document.querySelector('#panelStats'),
   samuraiChart: document.querySelector('#samuraiChart'),
+  shirtBreakdownBody: document.querySelector('#shirtBreakdownBody'),
+  positionBreakdownBody: document.querySelector('#positionBreakdownBody'),
   matchLogBody: document.querySelector('#matchLogBody'),
   closePanelButton: document.querySelector('#closePanelButton'),
   exportCsvButton: document.querySelector('#exportCsvButton'),
@@ -86,6 +91,7 @@ function readUrlParams() {
   state.filters.q = get('q', '');
   state.filters.start = get('start', '');
   state.filters.end = get('end', '');
+  state.filters.minMinutes = Math.max(0, Number.parseInt(get('minMinutes', '0'), 10) || 0);
   state.sort.key = get('sort', 'samurai_stats');
   state.sort.dir = get('dir', 'desc') === 'asc' ? 'asc' : 'desc';
 }
@@ -100,6 +106,7 @@ function syncUrl() {
   if (f.q) params.set('q', f.q);
   if (f.start) params.set('start', f.start);
   if (f.end) params.set('end', f.end);
+  if (Number(f.minMinutes) > 0) params.set('minMinutes', String(Math.round(Number(f.minMinutes))));
   if (state.sort.key !== 'samurai_stats') params.set('sort', state.sort.key);
   if (state.sort.dir !== 'desc') params.set('dir', state.sort.dir);
   const next = `${location.pathname}${params.toString() ? `?${params}` : ''}`;
@@ -254,6 +261,25 @@ function syncControlsFromState() {
   els.startDateInput.value = state.filters.start;
   els.endDateInput.value = state.filters.end;
   els.searchInput.value = state.filters.q;
+  if (els.minMinutesSlider) els.minMinutesSlider.value = String(state.filters.minMinutes || 0);
+  updateMinMinutesLabel();
+}
+
+
+function updateMinMinutesLabel() {
+  if (!els.minMinutesValue) return;
+  const value = Math.round(Number(state.filters.minMinutes) || 0);
+  els.minMinutesValue.textContent = value > 0 ? `${numberFmt.format(value)}分超` : '0分超';
+}
+
+function updateMinutesSliderMax(rowsBeforeFilter) {
+  if (!els.minMinutesSlider) return;
+  const maxMinutes = Math.max(0, ...rowsBeforeFilter.map((row) => Math.ceil(row.minutes || 0)));
+  const current = Math.round(Number(state.filters.minMinutes) || 0);
+  els.minMinutesSlider.max = String(maxMinutes);
+  if (current > maxMinutes) state.filters.minMinutes = maxMinutes;
+  els.minMinutesSlider.value = String(state.filters.minMinutes || 0);
+  updateMinMinutesLabel();
 }
 
 function appearancesForDateAndTeam() {
@@ -364,7 +390,7 @@ function aggregateRows() {
     row.net_actions += s.net_actions || 0;
   });
 
-  const rows = [...groups.values()].map((row) => {
+  const rowsBeforeMinutesFilter = [...groups.values()].map((row) => {
     const sortedPositions = [...row.positions.entries()].sort((a, b) => b[1] - a[1]);
     row.position_label = sortedPositions.length
       ? sortedPositions.slice(0, 2).map(([id]) => positionNames.get(id) || id).join(' / ')
@@ -375,6 +401,11 @@ function aggregateRows() {
     row.net_display = displayActionValue(row, row.net_actions);
     return row;
   });
+  updateMinutesSliderMax(rowsBeforeMinutesFilter);
+  const threshold = Math.max(0, Number(state.filters.minMinutes) || 0);
+  const rows = threshold > 0
+    ? rowsBeforeMinutesFilter.filter((row) => row.minutes > threshold)
+    : rowsBeforeMinutesFilter;
   sortRows(rows);
   state.rows = rows;
 }
@@ -415,7 +446,10 @@ function renderSummary() {
   els.matchSummary.textContent = `${numberFmt.format(matchIds.size)} 試合`;
   els.playerSummary.textContent = `${numberFmt.format(state.rows.length)} 選手`;
   els.bipSummary.textContent = `${numberFmt.format(totalBip)} 分`;
-  els.statusText.textContent = `${numberFmt.format(state.rows.length)}件を表示中`;
+  const threshold = Math.max(0, Number(state.filters.minMinutes) || 0);
+  els.statusText.textContent = threshold > 0
+    ? `${numberFmt.format(state.rows.length)}件を表示中（出場時間 ${numberFmt.format(threshold)}分以下を除外）`
+    : `${numberFmt.format(state.rows.length)}件を表示中`;
 }
 
 function formatActionDisplay(value) {
@@ -574,6 +608,43 @@ function renderSamuraiChart(logs) {
   });
 }
 
+
+function countPlayedBy(logs, getKey, getLabel) {
+  const counts = new Map();
+  logs.forEach(({ appearance }) => {
+    if (!appearance.played) return;
+    const key = getKey(appearance);
+    if (key == null || key === '') return;
+    const keyText = String(key);
+    if (!counts.has(keyText)) counts.set(keyText, { key: keyText, label: getLabel ? getLabel(appearance, keyText) : keyText, count: 0 });
+    counts.get(keyText).count += 1;
+  });
+  return [...counts.values()].sort((a, b) => b.count - a.count || String(a.key).localeCompare(String(b.key), 'ja', { numeric: true }));
+}
+
+function renderPlayerBreakdowns(logs) {
+  const shirtRows = countPlayedBy(logs, (a) => a.shirt_no ?? '-', null);
+  els.shirtBreakdownBody.innerHTML = shirtRows.length
+    ? shirtRows.map((row) => `
+      <tr>
+        <td>${escapeHtml(row.key)}</td>
+        <td class="numeric">${numberFmt.format(row.count)}</td>
+      </tr>
+    `).join('')
+    : '<tr><td colspan="2" class="empty-state">出場記録がありません。</td></tr>';
+
+  const positionRows = countPlayedBy(logs, (a) => a.position_id ?? '-', (_a, key) => positionNames.get(String(key)) || '-');
+  els.positionBreakdownBody.innerHTML = positionRows.length
+    ? positionRows.map((row) => `
+      <tr>
+        <td>${escapeHtml(row.key)}</td>
+        <td>${escapeHtml(row.label)}</td>
+        <td class="numeric">${numberFmt.format(row.count)}</td>
+      </tr>
+    `).join('')
+    : '<tr><td colspan="3" class="empty-state">出場記録がありません。</td></tr>';
+}
+
 function renderPlayerPanel(playerKey) {
   const row = state.rows.find((r) => r.key === playerKey);
   if (!row) {
@@ -595,6 +666,7 @@ function renderPlayerPanel(playerKey) {
 
   const logs = playerMatchLogRecords(playerKey);
   renderSamuraiChart(logs);
+  renderPlayerBreakdowns(logs);
 
   const tableLogs = [...logs].sort((a, b) => `${b.appearance.date}${b.appearance.match_id}`.localeCompare(`${a.appearance.date}${a.appearance.match_id}`));
   els.matchLogBody.innerHTML = tableLogs.map(({ appearance: a, team, bip, samurai, opponent, role }) => `
@@ -635,9 +707,13 @@ function applyPreset(preset) {
     state.filters.start = proposedStart < minDate ? minDate : proposedStart;
     state.filters.end = dates.at(-1);
   }
-  if (preset === 'latest-5-matchdays' || preset === 'latest-10-matchdays') {
-    const count = preset === 'latest-5-matchdays' ? 5 : 10;
-    const selected = dates.slice(-count);
+  if (['latest-1-matchday', 'latest-5-matchdays', 'latest-10-matchdays'].includes(preset)) {
+    const countByPreset = {
+      'latest-1-matchday': 1,
+      'latest-5-matchdays': 5,
+      'latest-10-matchdays': 10,
+    };
+    const selected = dates.slice(-countByPreset[preset]);
     state.filters.start = selected[0];
     state.filters.end = selected.at(-1);
   }
@@ -652,12 +728,12 @@ function exportCsv() {
   }
   const header = [
     'competition_id','season_filter','player_id','player_name','team_id','team_name','position',
-    'minutes','appearances','starts','reserve_selections','samurai_stats','playing_ball_in_play_minutes','start_date','end_date'
+    'minutes','appearances','starts','reserve_selections','samurai_stats','playing_ball_in_play_minutes','start_date','end_date','min_minutes_filter'
   ];
   const rows = state.rows.map((r) => [
     state.filters.competition, state.filters.season, r.player_id, r.player_name, r.team_id, r.team_name, r.position_label,
     r.minutes, r.appearances, r.starts, r.reserve_selections, r.samurai_stats, r.playing_ball_in_play_minutes,
-    state.filters.start, state.filters.end,
+    state.filters.start, state.filters.end, state.filters.minMinutes || 0,
   ]);
   const csv = [header, ...rows].map((row) => row.map((v) => `"${String(v ?? '').replaceAll('"', '""')}"`).join(',')).join('\n');
   const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
@@ -676,6 +752,7 @@ function bindEvents() {
     state.filters.position = 'all';
     state.filters.start = '';
     state.filters.end = '';
+    state.filters.minMinutes = 0;
     state.loadedKey = null;
     populateSeasonSelect();
     await loadSelectedData();
@@ -687,6 +764,7 @@ function bindEvents() {
     state.filters.team = 'all';
     state.filters.start = '';
     state.filters.end = '';
+    state.filters.minMinutes = 0;
     state.loadedKey = null;
     await loadSelectedData();
     syncControlsFromState();
@@ -697,11 +775,17 @@ function bindEvents() {
   els.startDateInput.addEventListener('change', () => { state.filters.start = els.startDateInput.value; render(); });
   els.endDateInput.addEventListener('change', () => { state.filters.end = els.endDateInput.value; render(); });
   els.searchInput.addEventListener('input', () => { state.filters.q = els.searchInput.value.trim(); render(); });
+  els.minMinutesSlider.addEventListener('input', () => {
+    state.filters.minMinutes = Math.max(0, Number.parseInt(els.minMinutesSlider.value, 10) || 0);
+    updateMinMinutesLabel();
+    render();
+  });
   document.querySelectorAll('[data-preset]').forEach((button) => button.addEventListener('click', () => applyPreset(button.dataset.preset)));
   els.resetButton.addEventListener('click', () => {
     state.filters.team = 'all';
     state.filters.position = 'all';
     state.filters.q = '';
+    state.filters.minMinutes = 0;
     applyPreset('all');
   });
   document.querySelectorAll('th[data-sort]').forEach((th) => {

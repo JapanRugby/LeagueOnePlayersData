@@ -450,3 +450,39 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 @media (max-width: 520px) {
   .player-list-field, .player-list-actions { grid-column: span 1; }
 }
+
+/* Ranking table: keep player name visible while horizontally scrolling. */
+#statsTable th:first-child,
+#statsTable td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 210px;
+  max-width: 260px;
+  background: #ffffff;
+  box-shadow: 10px 0 16px -14px rgba(15, 23, 42, 0.45);
+}
+#statsTable th:first-child {
+  z-index: 4;
+  background: #f8fafc;
+}
+#statsTable tbody tr:hover td:first-child {
+  background: #f1f6ff;
+}
+#statsTable td:first-child .player-name {
+  display: inline-block;
+  max-width: 230px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+@media (max-width: 620px) {
+  #statsTable th:first-child,
+  #statsTable td:first-child {
+    min-width: 170px;
+    max-width: 210px;
+  }
+  #statsTable td:first-child .player-name {
+    max-width: 185px;
+  }
+}

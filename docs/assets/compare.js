@@ -1,5 +1,4 @@
 const MAX_SELECTED_PLAYERS = 10;
-const ALL_COMPETITIONS_VALUE = 'all';
 
 const state = {
   manifest: null,
@@ -47,7 +46,7 @@ const els = {
 const numberFmt = new Intl.NumberFormat('ja-JP');
 const oneDecimalFmt = new Intl.NumberFormat('ja-JP', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const twoDecimalFmt = new Intl.NumberFormat('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const samuraiFmt = new Intl.NumberFormat('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const samuraiFmt = new Intl.NumberFormat('ja-JP', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 const percentFmt = new Intl.NumberFormat('ja-JP', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 const positionNames = new Map();
@@ -96,40 +95,11 @@ function setSelectOptions(select, options, selectedValue) {
 }
 
 function selectedCompetition() {
-  if (state.filters.competition === ALL_COMPETITIONS_VALUE) return null;
   return state.manifest?.competitions?.find((c) => c.competition_id === state.filters.competition);
-}
-
-function allSeasonOptions() {
-  const byId = new Map();
-  (state.manifest?.competitions || []).forEach((competition) => {
-    (competition.seasons || []).forEach((season) => {
-      const existing = byId.get(season.season_id);
-      if (!existing) {
-        byId.set(season.season_id, { ...season });
-      } else {
-        existing.date_min = [existing.date_min, season.date_min].filter(Boolean).sort()[0] || existing.date_min;
-        existing.date_max = [existing.date_max, season.date_max].filter(Boolean).sort().at(-1) || existing.date_max;
-      }
-    });
-  });
-  return [...byId.values()].sort((a, b) => a.season_id.localeCompare(b.season_id));
 }
 
 function selectedSeasonMeta() {
   return selectedCompetition()?.seasons?.find((s) => s.season_id === state.filters.season);
-}
-
-function selectedDataTargets() {
-  const competitions = state.filters.competition === ALL_COMPETITIONS_VALUE
-    ? (state.manifest?.competitions || [])
-    : [selectedCompetition()].filter(Boolean);
-  return competitions.flatMap((competition) => {
-    const seasons = state.filters.season === 'all'
-      ? (competition.seasons || [])
-      : (competition.seasons || []).filter((season) => season.season_id === state.filters.season);
-    return seasons.map((season) => ({ competition, season }));
-  });
 }
 
 function getQuery() {
@@ -179,8 +149,8 @@ function formatValue(value, kind) {
   return oneDecimalFmt.format(value || 0);
 }
 
-function appearanceKey(matchId, teamId, playerId, competitionId = '') {
-  return `${competitionId}|${matchId}|${teamId}|${playerId}`;
+function appearanceKey(matchId, teamId, playerId) {
+  return `${matchId}|${teamId}|${playerId}`;
 }
 
 function rebuildIndexes() {
@@ -191,17 +161,15 @@ function rebuildIndexes() {
   state.data.matches.forEach((m) => matchById.set(m.match_id, m));
   state.data.teams.forEach((t) => teamById.set(t.team_id, t));
   state.data.players.forEach((p) => playerById.set(p.player_id, p));
-  state.data.appearances.forEach((a) => appearanceByKey.set(appearanceKey(a.match_id, a.team_id, a.player_id, a.competition_id), a));
+  state.data.appearances.forEach((a) => appearanceByKey.set(appearanceKey(a.match_id, a.team_id, a.player_id), a));
 }
 
 function populateCompetitionSelect() {
   const competitions = [...(state.manifest.competitions || [])];
-  if (!state.filters.competition || (state.filters.competition !== ALL_COMPETITIONS_VALUE && !competitions.some((c) => c.competition_id === state.filters.competition))) {
-    state.filters.competition = ALL_COMPETITIONS_VALUE;
+  if (!state.filters.competition || !competitions.some((c) => c.competition_id === state.filters.competition)) {
+    state.filters.competition = competitions[0]?.competition_id || '';
   }
-  const competitionOptions = [{ value: ALL_COMPETITIONS_VALUE, label: '全コンペティション' }]
-    .concat(competitions.map((c) => ({ value: c.competition_id, label: c.name })));
-  setSelectOptions(els.competitionSelect, competitionOptions, state.filters.competition);
+  setSelectOptions(els.competitionSelect, competitions.map((c) => ({ value: c.competition_id, label: c.name })), state.filters.competition);
   populateSeasonSelect();
   state.manifest.positions.forEach((p) => positionNames.set(String(p.position_id), p.ja || p.en));
   const posOptions = [{ value: 'all', label: 'All Positions' }].concat(
@@ -211,9 +179,8 @@ function populateCompetitionSelect() {
 }
 
 function populateSeasonSelect() {
-  const seasons = state.filters.competition === ALL_COMPETITIONS_VALUE
-    ? allSeasonOptions()
-    : [...(selectedCompetition()?.seasons || [])].sort((a, b) => a.season_id.localeCompare(b.season_id));
+  const comp = selectedCompetition();
+  const seasons = [...(comp?.seasons || [])].sort((a, b) => a.season_id.localeCompare(b.season_id));
   if (!seasons.length) {
     setSelectOptions(els.seasonSelect, [], '');
     state.filters.season = '';
@@ -223,19 +190,20 @@ function populateSeasonSelect() {
   if (!state.filters.season || !validSeason) state.filters.season = seasons.at(-1).season_id;
   const opts = [{ value: 'all', label: '全シーズン' }].concat(seasons.map((s) => ({
     value: s.season_id,
-    label: `${s.label || s.season_id} (${s.date_min || '-'}〜${s.date_max || '-'})`,
+    label: `${s.label} (${s.date_min}〜${s.date_max})`,
   })));
   setSelectOptions(els.seasonSelect, opts, state.filters.season);
 }
 
 async function loadSelectedData() {
-  const targets = selectedDataTargets();
-  if (!targets.length) return;
-  const key = `${state.filters.competition}:${state.filters.season}`;
+  const comp = selectedCompetition();
+  if (!comp) return;
+  const key = `${comp.competition_id}:${state.filters.season}`;
   if (state.loadedKey === key) return;
   els.compareStatusText.textContent = 'データを読み込んでいます。';
-  const chunks = await Promise.all(targets.map(async ({ competition, season }) => {
-    const base = `./data/${competition.competition_id}/${season.season_id}`;
+  const seasons = state.filters.season === 'all' ? comp.seasons : [selectedSeasonMeta()];
+  const chunks = await Promise.all(seasons.map(async (s) => {
+    const base = `./data/${comp.competition_id}/${s.season_id}`;
     const [matches, appearances, actionStats, teams, players] = await Promise.all([
       fetchJson(`${base}/matches.json`),
       fetchJson(`${base}/appearances.json`),
@@ -248,7 +216,7 @@ async function loadSelectedData() {
   state.data.matches = chunks.flatMap((c) => c.matches);
   state.data.appearances = chunks.flatMap((c) => c.appearances);
   state.data.actionStats = chunks.flatMap((c) => c.actionStats);
-  state.data.teams = uniqueBy(chunks.flatMap((c) => c.teams), (item) => `${item.competition_id || ''}|${item.team_id}`).sort((a, b) => a.name.localeCompare(b.name));
+  state.data.teams = uniqueBy(chunks.flatMap((c) => c.teams), 'team_id').sort((a, b) => a.name.localeCompare(b.name));
   state.data.players = uniqueBy(chunks.flatMap((c) => c.players), 'player_id').sort((a, b) => a.display_name.localeCompare(b.display_name));
   rebuildIndexes();
   populateTeamSelect();
@@ -258,8 +226,7 @@ async function loadSelectedData() {
 
 function uniqueBy(items, key) {
   const map = new Map();
-  const getKey = typeof key === 'function' ? key : (item) => item[key];
-  items.forEach((item) => map.set(getKey(item), item));
+  items.forEach((item) => map.set(item[key], item));
   return [...map.values()];
 }
 
@@ -272,17 +239,11 @@ function populateTeamSelect() {
 }
 
 function applyDefaultDatesIfNeeded() {
+  if (state.filters.start && state.filters.end) return;
   const dates = state.data.matches.map((m) => m.date).filter(Boolean).sort();
   if (!dates.length) return;
-  const min = dates[0];
-  const max = dates.at(-1);
-  els.startDateInput.min = min;
-  els.startDateInput.max = max;
-  els.endDateInput.min = min;
-  els.endDateInput.max = max;
-  if (!state.filters.start || state.filters.start < min || state.filters.start > max) state.filters.start = min;
-  if (!state.filters.end || state.filters.end < min || state.filters.end > max) state.filters.end = max;
-  if (state.filters.start > state.filters.end) [state.filters.start, state.filters.end] = [state.filters.end, state.filters.start];
+  state.filters.start = state.filters.start || dates[0];
+  state.filters.end = state.filters.end || dates.at(-1);
   els.startDateInput.value = state.filters.start;
   els.endDateInput.value = state.filters.end;
 }
@@ -294,7 +255,7 @@ function filteredActionStats() {
     if (start && row.date < start) return false;
     if (end && row.date > end) return false;
     if (state.filters.team !== 'all' && row.team_id !== state.filters.team) return false;
-    const appearance = appearanceByKey.get(appearanceKey(row.match_id, row.team_id, row.player_id, row.competition_id));
+    const appearance = appearanceByKey.get(appearanceKey(row.match_id, row.team_id, row.player_id));
     if (state.filters.position !== 'all' && String(appearance?.position_id ?? '') !== state.filters.position) return false;
     return true;
   });
@@ -512,11 +473,12 @@ function removeSelectedPlayer(playerId) {
 }
 
 function resetFilters() {
+  const comp = selectedCompetition();
   state.filters.team = 'all';
   state.filters.position = 'all';
   state.filters.playerSearch = '';
   state.filters.minMinutes = 0;
-  const seasons = state.filters.competition === ALL_COMPETITIONS_VALUE ? allSeasonOptions() : (selectedCompetition()?.seasons || []);
+  const seasons = comp?.seasons || [];
   if (seasons.length) state.filters.season = seasons.at(-1).season_id;
   state.filters.start = '';
   state.filters.end = '';

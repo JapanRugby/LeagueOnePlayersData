@@ -3,7 +3,7 @@ const ALL_COMPETITIONS_VALUE = 'all';
 const state = {
   manifest: null,
   loadedKey: null,
-  data: { matches: [], appearances: [], samurai: [], teams: [], players: [] },
+  data: { matches: [], appearances: [], samurai: [], actionStats: [], teams: [], players: [] },
   filters: {
     competition: null,
     season: null,
@@ -17,7 +17,8 @@ const state = {
   sort: { key: 'samurai_stats', dir: 'desc' },
   rows: [],
   selectedPlayerKey: null,
-  playerListFilter: { active: false, filename: '', ids: new Set(), names: new Set() },
+  playerListFilter: { active: false, filename: '', names: new Set(), source: 'none' },
+  playerListDefinitions: [],
 };
 
 const els = {
@@ -30,6 +31,7 @@ const els = {
   searchInput: document.querySelector('#searchInput'),
   minMinutesSlider: document.querySelector('#minMinutesSlider'),
   minMinutesValue: document.querySelector('#minMinutesValue'),
+  playerListSelect: document.querySelector('#playerListSelect'),
   playerListCsvInput: document.querySelector('#playerListCsvInput'),
   playerListStatus: document.querySelector('#playerListStatus'),
   downloadPlayerListTemplateButton: document.querySelector('#downloadPlayerListTemplateButton'),
@@ -71,7 +73,12 @@ function escapeHtml(value) {
 }
 
 function normalize(value) {
-  return String(value ?? '').toLowerCase().normalize('NFKC');
+  return String(value ?? '').toLowerCase().normalize('NFKC').trim();
+}
+
+function normalizePlayerName(value) {
+  // Name-only matching: ignore case, width, whitespace and punctuation.
+  return normalize(value).replace(/[^\p{L}\p{N}]+/gu, '');
 }
 
 function showToast(message) {
@@ -211,6 +218,7 @@ async function loadSelectedData() {
     state.data.matches = [];
     state.data.appearances = [];
     state.data.samurai = [];
+    state.data.actionStats = [];
     state.data.teams = [];
     state.data.players = [];
     els.statusText.textContent = '読み込めるコンペティションデータがありません。';
@@ -221,18 +229,20 @@ async function loadSelectedData() {
   els.statusText.textContent = 'データを読み込んでいます。';
   const chunks = await Promise.all(targets.map(async ({ competition, season }) => {
     const base = `./data/${competition.competition_id}/${season.season_id}`;
-    const [matches, appearances, samurai, teams, players] = await Promise.all([
+    const [matches, appearances, samurai, actionStats, teams, players] = await Promise.all([
       fetchJson(`${base}/matches.json`),
       fetchJson(`${base}/appearances.json`),
       fetchJson(`${base}/samurai_match_stats.json`),
+      fetchJson(`${base}/player_action_stats.json`).catch(() => []),
       fetchJson(`${base}/teams.json`),
       fetchJson(`${base}/players.json`),
     ]);
-    return { matches, appearances, samurai, teams, players };
+    return { matches, appearances, samurai, actionStats, teams, players };
   }));
   state.data.matches = chunks.flatMap((c) => c.matches);
   state.data.appearances = chunks.flatMap((c) => c.appearances);
   state.data.samurai = chunks.flatMap((c) => c.samurai);
+  state.data.actionStats = chunks.flatMap((c) => c.actionStats || []);
   state.data.teams = uniqueBy(chunks.flatMap((c) => c.teams), (item) => `${item.competition_id || ''}|${item.team_id}`)
     .sort((a, b) => a.name.localeCompare(b.name));
   state.data.players = uniqueBy(chunks.flatMap((c) => c.players), (item) => item.player_id)
@@ -368,30 +378,35 @@ function getHeaderIndex(headers, names) {
 }
 
 function parsePlayerListCsv(text) {
-  const lines = text.replace(/^\ufeff/, '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  const ids = new Set();
+  const lines = text
+    .replace(/^\ufeff/, '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'));
   const names = new Set();
-  if (!lines.length) return { ids, names };
+  if (!lines.length) return { names };
+
   const first = parseCsvLine(lines[0]);
-  const idIndex = getHeaderIndex(first, ['player_id', 'PLID', 'PlayerID', 'player id']);
-  const nameIndex = getHeaderIndex(first, ['player_name', 'display_name', 'PlayerName', 'name', 'player']);
-  const hasHeader = idIndex >= 0 || nameIndex >= 0;
+  const nameIndex = getHeaderIndex(first, [
+    'player_name', 'display_name', 'PlayerName', 'name', 'player', 'player name', '選手名', '氏名'
+  ]);
+  const hasHeader = nameIndex >= 0;
   const rows = hasHeader ? lines.slice(1) : lines;
+
   rows.forEach((line) => {
     const cells = parseCsvLine(line);
-    const idValue = hasHeader && idIndex >= 0 ? cells[idIndex] : cells[0];
-    const nameValue = hasHeader && nameIndex >= 0 ? cells[nameIndex] : (cells.length > 1 ? cells[1] : cells[0]);
-    if (idValue && /^\d+$/.test(String(idValue).trim())) ids.add(String(idValue).trim());
-    if (nameValue) names.add(normalize(nameValue));
+    const nameValue = hasHeader ? cells[nameIndex] : cells[0];
+    const normalizedName = normalizePlayerName(nameValue);
+    if (normalizedName) names.add(normalizedName);
   });
-  return { ids, names };
+  return { names };
 }
 
 function playerMatchesListFilter(playerId, playerName) {
   const filter = state.playerListFilter;
   if (!filter.active) return true;
-  if (filter.ids.has(String(playerId))) return true;
-  const normalizedName = normalize(playerName);
+  const normalizedName = normalizePlayerName(playerName);
+  if (!normalizedName) return false;
   if (filter.names.has(normalizedName)) return true;
   for (const listedName of filter.names) {
     if (listedName && (normalizedName.includes(listedName) || listedName.includes(normalizedName))) return true;
@@ -403,28 +418,68 @@ function updatePlayerListStatus() {
   if (!els.playerListStatus) return;
   const filter = state.playerListFilter;
   if (!filter.active) {
-    els.playerListStatus.textContent = 'CSV未適用';
+    els.playerListStatus.textContent = '対象選手リスト未適用';
     return;
   }
-  const count = filter.ids.size + filter.names.size;
-  els.playerListStatus.textContent = `${filter.filename || 'CSV'}: ${numberFmt.format(count)}件`;
+  const count = filter.names.size;
+  els.playerListStatus.textContent = `${filter.filename || 'Player list'}: ${numberFmt.format(count)}名`;
 }
 
 function clearPlayerListFilter() {
-  state.playerListFilter = { active: false, filename: '', ids: new Set(), names: new Set() };
+  state.playerListFilter = { active: false, filename: '', names: new Set(), source: 'none' };
   if (els.playerListCsvInput) els.playerListCsvInput.value = '';
+  if (els.playerListSelect) els.playerListSelect.value = '';
   updatePlayerListStatus();
   render();
 }
 
 function downloadPlayerListTemplate() {
-  const csv = 'player_id,player_name\n12345,Sample Player\n';
+  const csv = 'player_name\nSample Player\nAnother Player\n';
   const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'player-list-template.csv';
+  a.download = 'player-name-list-template.csv';
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+async function loadPlayerListDefinitions() {
+  try {
+    const data = await fetchJson('./data/player-lists/manifest.json');
+    state.playerListDefinitions = Array.isArray(data.lists) ? data.lists : [];
+  } catch (error) {
+    state.playerListDefinitions = [];
+  }
+}
+
+function populatePlayerListSelect() {
+  if (!els.playerListSelect) return;
+  const options = [{ value: '', label: 'リストを選択しない' }].concat(
+    state.playerListDefinitions.map((list) => ({ value: list.id, label: list.name || list.id }))
+  );
+  setSelectOptions(els.playerListSelect, options, '');
+}
+
+async function applyPlayerListDefinition(listId) {
+  if (!listId) {
+    clearPlayerListFilter();
+    return;
+  }
+  const definition = state.playerListDefinitions.find((list) => list.id === listId);
+  if (!definition) return;
+  const path = definition.path || `./data/player-lists/${definition.id}.csv`;
+  const response = await fetch(path, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`${definition.name || definition.id} の読み込みに失敗しました`);
+  const parsed = parsePlayerListCsv(await response.text());
+  state.playerListFilter = {
+    active: true,
+    filename: definition.name || definition.id,
+    names: parsed.names,
+    source: 'github',
+  };
+  if (els.playerListCsvInput) els.playerListCsvInput.value = '';
+  updatePlayerListStatus();
+  render();
 }
 function currentFilteredAppearances() {
   const q = normalize(state.filters.q);
@@ -467,6 +522,47 @@ function playingBipMinutes(record) {
   return record.playing_ball_in_play_minutes ?? record.ball_in_play_minutes ?? 0;
 }
 
+function safePer80(value, minutes) {
+  return minutes > 0 ? (Number(value || 0) / minutes) * 80 : 0;
+}
+
+function safePct(numerator, denominator) {
+  return denominator > 0 ? (Number(numerator || 0) / denominator) * 100 : 0;
+}
+
+function actionStatKey(record) {
+  return `${record.competition_id || ''}|${record.match_id}|${record.team_id}|${record.player_id}`;
+}
+
+function addActionMetricDefaults(row) {
+  row.ball_carry_attempts = 0;
+  row.dominant_carries = 0;
+  row.carry_metres = 0;
+  row.post_contact_metres = 0;
+  row.tackle_attempts = 0;
+  row.tackles_made = 0;
+  row.dominant_tackles = 0;
+  row.ruck_ooa_attack_attempts = 0;
+  row.ruck_ooa_attack_effective = 0;
+  row.ball_carry_attempt_per80 = 0;
+  row.ball_carry_dominance_pct = 0;
+  row.ball_carry_metres_per80 = 0;
+  row.post_contact_metres_per80 = 0;
+  row.tackle_attempt_per80 = 0;
+  row.tackle_made_per80 = 0;
+  row.tackle_dominance_pct = 0;
+  row.ruck_ooa_attack_attempt_per80 = 0;
+  row.ruck_ooa_attack_effectiveness_pct = 0;
+}
+
+function formatPer80(value) {
+  return decimalFmt.format(value || 0);
+}
+
+function formatPct(value) {
+  return `${decimalFmt.format(value || 0)}%`;
+}
+
 function aggregateRows() {
   const appearances = currentFilteredAppearances();
   const groups = new Map();
@@ -502,6 +598,7 @@ function aggregateRows() {
         samurai_stats: 0,
         match_ids: new Set(),
       });
+      addActionMetricDefaults(groups.get(key));
     }
     const row = groups.get(key);
     row.minutes += a.minutes || 0;
@@ -526,12 +623,38 @@ function aggregateRows() {
     row.net_actions += s.net_actions || 0;
   });
 
+  const allowedActionKeys = new Set(appearances.map((a) => actionStatKey(a)));
+  state.data.actionStats.forEach((stat) => {
+    if (!allowedActionKeys.has(actionStatKey(stat))) return;
+    const key = `${stat.player_id}|${stat.team_id}`;
+    const row = groups.get(key);
+    if (!row) return;
+    row.ball_carry_attempts += Number(stat.ball_carry_attempts || 0);
+    row.dominant_carries += Number(stat.dominant_carries || 0);
+    row.carry_metres += Number(stat.carry_metres || 0);
+    row.post_contact_metres += Number(stat.post_contact_metres || 0);
+    row.tackle_attempts += Number(stat.tackle_attempts || 0);
+    row.tackles_made += Number(stat.tackles_made || 0);
+    row.dominant_tackles += Number(stat.dominant_tackles || 0);
+    row.ruck_ooa_attack_attempts += Number(stat.ruck_ooa_attack_attempts || 0);
+    row.ruck_ooa_attack_effective += Number(stat.ruck_ooa_attack_effective || 0);
+  });
+
   const rowsBeforeMinutesFilter = [...groups.values()].map((row) => {
     const sortedPositions = [...row.positions.entries()].sort((a, b) => b[1] - a[1]);
     row.position_label = sortedPositions.length
       ? sortedPositions.slice(0, 2).map(([id]) => positionNames.get(id) || id).join(' / ')
       : '-';
     row.samurai_stats = row.playing_ball_in_play_minutes > 0 ? row.net_actions / row.playing_ball_in_play_minutes : 0;
+    row.ball_carry_attempt_per80 = safePer80(row.ball_carry_attempts, row.minutes);
+    row.ball_carry_dominance_pct = safePct(row.dominant_carries, row.ball_carry_attempts);
+    row.ball_carry_metres_per80 = safePer80(row.carry_metres, row.minutes);
+    row.post_contact_metres_per80 = safePer80(row.post_contact_metres, row.minutes);
+    row.tackle_attempt_per80 = safePer80(row.tackle_attempts, row.minutes);
+    row.tackle_made_per80 = safePer80(row.tackles_made, row.minutes);
+    row.tackle_dominance_pct = safePct(row.dominant_tackles, row.tackle_attempts);
+    row.ruck_ooa_attack_attempt_per80 = safePer80(row.ruck_ooa_attack_attempts, row.minutes);
+    row.ruck_ooa_attack_effectiveness_pct = safePct(row.ruck_ooa_attack_effective, row.ruck_ooa_attack_attempts);
     row.positive_display = displayActionValue(row, row.positive_actions);
     row.negative_display = displayActionValue(row, row.negative_actions);
     row.net_display = displayActionValue(row, row.net_actions);
@@ -583,7 +706,7 @@ function renderSummary() {
   els.playerSummary.textContent = `${numberFmt.format(state.rows.length)} 選手`;
   els.bipSummary.textContent = `${numberFmt.format(totalBip)} 分`;
   const threshold = Math.max(0, Number(state.filters.minMinutes) || 0);
-  const playerListText = state.playerListFilter.active ? ' / 対象選手CSV適用中' : '';
+  const playerListText = state.playerListFilter.active ? ' / 対象選手リスト適用中' : '';
   els.statusText.textContent = threshold > 0
     ? `${numberFmt.format(state.rows.length)}件を表示中（出場時間 ${numberFmt.format(threshold)}分以下を除外${playerListText}）`
     : `${numberFmt.format(state.rows.length)}件を表示中${playerListText}`;
@@ -595,7 +718,7 @@ function formatActionDisplay(value) {
 
 function renderTable() {
   if (!state.rows.length) {
-    els.statsBody.innerHTML = `<tr><td colspan="8" class="empty-state">条件に一致する選手がいません。</td></tr>`;
+    els.statsBody.innerHTML = `<tr><td colspan="17" class="empty-state">条件に一致する選手がいません。</td></tr>`;
     return;
   }
   els.statsBody.innerHTML = state.rows.map((row) => `
@@ -608,6 +731,15 @@ function renderTable() {
       <td class="numeric">${numberFmt.format(row.starts)}</td>
       <td class="numeric">${numberFmt.format(row.reserve_selections)}</td>
       <td class="numeric primary-metric">${samuraiFmt.format(row.samurai_stats)}</td>
+      <td class="numeric">${formatPer80(row.ball_carry_attempt_per80)}</td>
+      <td class="numeric">${formatPct(row.ball_carry_dominance_pct)}</td>
+      <td class="numeric">${formatPer80(row.ball_carry_metres_per80)}</td>
+      <td class="numeric">${formatPer80(row.post_contact_metres_per80)}</td>
+      <td class="numeric">${formatPer80(row.tackle_attempt_per80)}</td>
+      <td class="numeric">${formatPer80(row.tackle_made_per80)}</td>
+      <td class="numeric">${formatPct(row.tackle_dominance_pct)}</td>
+      <td class="numeric">${formatPer80(row.ruck_ooa_attack_attempt_per80)}</td>
+      <td class="numeric">${formatPct(row.ruck_ooa_attack_effectiveness_pct)}</td>
     </tr>
   `).join('');
 }
@@ -865,12 +997,17 @@ function exportCsv() {
   }
   const header = [
     'competition_id','season_filter','player_id','player_name','team_id','team_name','position',
-    'minutes','appearances','starts','reserve_selections','samurai_stats','playing_ball_in_play_minutes','start_date','end_date','min_minutes_filter','player_list_filter'
+    'minutes','appearances','starts','reserve_selections','samurai_stats','ball_carry_attempt_per80',
+    'ball_carry_dominance_pct','ball_carry_metres_per80','post_contact_metres_per80','tackle_attempt_per80',
+    'tackle_made_per80','tackle_dominance_pct','ruck_ooa_attack_attempt_per80','ruck_ooa_attack_effectiveness_pct',
+    'playing_ball_in_play_minutes','start_date','end_date','min_minutes_filter','player_list_filter'
   ];
   const rows = state.rows.map((r) => [
     state.filters.competition, state.filters.season, r.player_id, r.player_name, r.team_id, r.team_name, r.position_label,
-    r.minutes, r.appearances, r.starts, r.reserve_selections, r.samurai_stats, r.playing_ball_in_play_minutes,
-    state.filters.start, state.filters.end, state.filters.minMinutes || 0, state.playerListFilter.active ? state.playerListFilter.filename : '',
+    r.minutes, r.appearances, r.starts, r.reserve_selections, r.samurai_stats, r.ball_carry_attempt_per80,
+    r.ball_carry_dominance_pct, r.ball_carry_metres_per80, r.post_contact_metres_per80, r.tackle_attempt_per80,
+    r.tackle_made_per80, r.tackle_dominance_pct, r.ruck_ooa_attack_attempt_per80, r.ruck_ooa_attack_effectiveness_pct,
+    r.playing_ball_in_play_minutes, state.filters.start, state.filters.end, state.filters.minMinutes || 0, state.playerListFilter.active ? state.playerListFilter.filename : '',
   ]);
   const csv = [header, ...rows].map((row) => row.map((v) => `"${String(v ?? '').replaceAll('"', '""')}"`).join(',')).join('\n');
   const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
@@ -923,8 +1060,9 @@ function bindEvents() {
     state.filters.position = 'all';
     state.filters.q = '';
     state.filters.minMinutes = 0;
-    state.playerListFilter = { active: false, filename: '', ids: new Set(), names: new Set() };
+    state.playerListFilter = { active: false, filename: '', names: new Set(), source: 'none' };
     if (els.playerListCsvInput) els.playerListCsvInput.value = '';
+    if (els.playerListSelect) els.playerListSelect.value = '';
     updatePlayerListStatus();
     applyPreset('all');
   });
@@ -953,13 +1091,24 @@ function bindEvents() {
       state.selectedPlayerKey = null;
     }
   });
+  if (els.playerListSelect) {
+    els.playerListSelect.addEventListener('change', async () => {
+      try {
+        await applyPlayerListDefinition(els.playerListSelect.value);
+      } catch (error) {
+        console.error(error);
+        showToast(error.message || '対象選手リストを読み込めませんでした');
+      }
+    });
+  }
   if (els.playerListCsvInput) {
     els.playerListCsvInput.addEventListener('change', async () => {
       const file = els.playerListCsvInput.files?.[0];
       if (!file) return;
       const text = await file.text();
       const parsed = parsePlayerListCsv(text);
-      state.playerListFilter = { active: true, filename: file.name, ids: parsed.ids, names: parsed.names };
+      state.playerListFilter = { active: true, filename: file.name, names: parsed.names, source: 'upload' };
+      if (els.playerListSelect) els.playerListSelect.value = '';
       updatePlayerListStatus();
       render();
     });
@@ -981,6 +1130,8 @@ function bindEvents() {
 async function init() {
   try {
     state.manifest = await fetchJson('./data/manifest.json');
+    await loadPlayerListDefinitions();
+    populatePlayerListSelect();
     populateInitialControls();
     readUrlParams();
     populateInitialControls();

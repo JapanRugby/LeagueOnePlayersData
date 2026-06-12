@@ -58,11 +58,15 @@
           <input id="minMinutesSlider" type="range" min="0" max="0" step="1" value="0" />
         </label>
         <label class="player-list-field">
-          <span>対象選手CSV</span>
+          <span>対象選手リスト（GitHub CSV）</span>
+          <select id="playerListSelect"></select>
+        </label>
+        <label class="player-list-field">
+          <span>CSVアップロード（Player nameのみ）</span>
           <input id="playerListCsvInput" type="file" accept=".csv,text/csv" />
         </label>
         <div class="player-list-actions">
-          <span id="playerListStatus">CSV未適用</span>
+          <span id="playerListStatus">対象選手リスト未適用</span>
           <div>
             <button id="downloadPlayerListTemplateButton" class="ghost-button compact-button" type="button">テンプレート</button>
             <button id="clearPlayerListButton" class="ghost-button compact-button" type="button">解除</button>
@@ -77,7 +81,7 @@
         <button type="button" data-preset="latest-10-matchdays">最新10開催日</button>
         <button type="button" id="resetButton">条件をリセット</button>
       </div>
-      <p class="rule-note">Positive / Negativeは1イベント行が複数条件に該当した場合に複数カウントします。Samurai Statsは常に選手ごとのPlaying BIP分あたりのrateとして扱います。対象選手CSVは <code>player_id</code> または <code>player_name</code> 列で絞り込みできます。</p>
+      <p class="rule-note">Positive / Negativeは1イベント行が複数条件に該当した場合に複数カウントします。Samurai Statsは常に選手ごとのPlaying BIP分あたりのrateとして扱います。対象選手リストは <code>player_name</code> 列だけで絞り込みます。GitHub上の <code>docs/data/player-lists/*.csv</code> を直接編集できます。</p>
     </section>
 
     <section class="summary-grid" aria-label="集計概要">
@@ -93,7 +97,7 @@
           <h2>Samurai Stats Ranking</h2>
           <p id="statusText">データを読み込んでいます。</p>
         </div>
-        <div class="small-note">列見出しをクリックすると並び替えできます。</div>
+        <div class="small-note">列見出しをクリックすると並び替えできます。追加スタッツはPlaying Minutesあたりのper80、%指標は割合で表示します。</div>
       </div>
       <div class="table-wrap">
         <table id="statsTable">
@@ -107,6 +111,15 @@
               <th data-sort="starts" class="numeric">スターティング</th>
               <th data-sort="reserve_selections" class="numeric">リザーブ</th>
               <th data-sort="samurai_stats" class="numeric primary-metric">Samurai Stats</th>
+              <th data-sort="ball_carry_attempt_per80" class="numeric">Ball Carry Attempt /80</th>
+              <th data-sort="ball_carry_dominance_pct" class="numeric">Ball Carry Dominance %</th>
+              <th data-sort="ball_carry_metres_per80" class="numeric">Ball Carry Metres /80</th>
+              <th data-sort="post_contact_metres_per80" class="numeric">Post Contact Metres /80</th>
+              <th data-sort="tackle_attempt_per80" class="numeric">Tackle Attempt /80</th>
+              <th data-sort="tackle_made_per80" class="numeric">Tackle Made /80</th>
+              <th data-sort="tackle_dominance_pct" class="numeric">Tackle Dominance %</th>
+              <th data-sort="ruck_ooa_attack_attempt_per80" class="numeric">Ruck OOA Attack Attempt /80</th>
+              <th data-sort="ruck_ooa_attack_effectiveness_pct" class="numeric">Ruck OOA Effectiveness %</th>
             </tr>
           </thead>
           <tbody id="statsBody"></tbody>

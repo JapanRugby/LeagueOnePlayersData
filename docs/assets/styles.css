@@ -156,7 +156,7 @@ h2 { font-size: 1.16rem; }
 .table-toolbar p { margin: 5px 0 0; color: var(--muted); font-size: 0.9rem; }
 .small-note { color: var(--muted); font-size: 0.82rem; }
 .table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; min-width: 880px; }
+table { width: 100%; border-collapse: collapse; min-width: 1480px; }
 th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
 th { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; background: #f8fafc; user-select: none; }
 th[data-sort] { cursor: pointer; }
